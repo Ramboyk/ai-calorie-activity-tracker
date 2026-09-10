@@ -6,7 +6,10 @@
   --foreground: #131b2e;
 }
 
+html,
 body {
+  max-width: 100vw;
+  overflow-x: hidden;
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-plus-jakarta), sans-serif;

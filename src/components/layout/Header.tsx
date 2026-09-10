@@ -59,30 +59,25 @@ export function Header({
 
   return (
     <header className="sticky top-0 inset-x-0 z-40 bg-surface/90 backdrop-blur-xl border-b border-surface-container transition-all">
-      <Container className="h-16 flex items-center justify-between gap-3">
+      <Container className="h-16 flex items-center justify-between gap-2 px-3 sm:px-6">
         {/* Brand Logo & Title */}
-        <Link href="/" className="flex items-center gap-2.5 shrink-0 group">
-          <div className="w-9 h-9 rounded-2xl bg-primary-soft text-primary flex items-center justify-center font-bold shadow-sm group-hover:scale-105 transition-transform">
-            <Sparkles className="w-5 h-5 text-primary" aria-hidden="true" />
+        <Link href="/" className="flex items-center gap-2 shrink-0 group">
+          <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-2xl bg-primary-soft text-primary flex items-center justify-center font-bold shadow-sm group-hover:scale-105 transition-transform">
+            <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-primary" aria-hidden="true" />
           </div>
-          <div className="flex flex-col">
-            <span className="font-extrabold text-base sm:text-lg tracking-tight text-app-text-main leading-tight">
-              NutriTrack AI
-            </span>
-            <span className="text-[10px] sm:text-xs font-medium text-app-text-muted leading-none hidden xs:block">
-              Akıllı Besin &amp; Kalori
-            </span>
-          </div>
+          <span className="font-extrabold text-sm sm:text-base tracking-tight text-app-text-main leading-tight hidden xs:inline">
+            NutriTrack <span className="text-primary">AI</span>
+          </span>
         </Link>
 
-        {/* Date Selector Navigation (Center / Left-aligned) */}
-        <div className="flex items-center gap-1 bg-surface-container-low/80 p-1 rounded-full border border-surface-container/60 shadow-xs">
+        {/* Date Selector Navigation (Compact & Responsive on Mobile) */}
+        <div className="flex items-center gap-0.5 bg-surface-container-low/90 p-0.5 sm:p-1 rounded-full border border-surface-container/60 shadow-xs">
           <button
             type="button"
             onClick={handlePrev}
             aria-label="Önceki Gün"
             title="Önceki Gün"
-            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center text-app-text-muted hover:text-app-text-main hover:bg-surface-container transition-colors active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-app-text-muted hover:text-app-text-main hover:bg-surface-container transition-colors active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
@@ -92,10 +87,10 @@ export function Header({
             onClick={handleDateClick}
             aria-label="Bugünün Tarihine Dön"
             title="Bugüne Dön"
-            className="flex items-center gap-1.5 px-3 h-11 min-h-[44px] text-xs font-semibold text-app-text-main select-none hover:bg-surface-container rounded-full transition-colors active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="flex items-center gap-1 px-2 sm:px-3 h-8 sm:h-9 text-[11px] sm:text-xs font-semibold text-app-text-main select-none hover:bg-surface-container rounded-full transition-colors active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
-            <Calendar className="w-3.5 h-3.5 text-primary hidden sm:block" />
-            <span className="whitespace-nowrap tabular-nums">{activeDateText}</span>
+            <Calendar className="w-3 h-3 text-primary hidden sm:block" />
+            <span className="whitespace-nowrap tabular-nums max-w-[130px] sm:max-w-none truncate">{activeDateText}</span>
           </button>
 
           <button
@@ -103,7 +98,7 @@ export function Header({
             onClick={handleNext}
             aria-label="Sonraki Gün"
             title="Sonraki Gün"
-            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center text-app-text-muted hover:text-app-text-main hover:bg-surface-container transition-colors active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full flex items-center justify-center text-app-text-muted hover:text-app-text-main hover:bg-surface-container transition-colors active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
@@ -190,23 +185,23 @@ export function Header({
             aria-label="Yönetici Paneli"
             title={isAdmin ? "Yönetici Modu Aktif (Sınırsız AI)" : "Portföy Yönetici Girişi"}
             className={cn(
-              "relative w-11 h-11 min-w-[44px] min-h-[44px] rounded-full border flex items-center justify-center transition-all active:scale-95",
+              "relative w-8 h-8 sm:w-9 sm:h-9 rounded-full border flex items-center justify-center transition-all active:scale-95",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
               isAdmin
                 ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25 shadow-xs"
                 : "bg-surface-container-high/80 border-surface-container text-app-text-muted hover:text-app-text-main hover:bg-surface-container"
             )}
           >
-            <Shield className="w-4 h-4" />
+            <Shield className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             {isAdmin && (
-              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-surface animate-pulse" />
+              <span className="absolute top-0.5 right-0.5 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-surface animate-pulse" />
             )}
           </Link>
 
           <button
             type="button"
             aria-label="Kullanıcı Profili"
-            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-surface-container-high/80 border border-surface-container flex items-center justify-center text-app-text-main hover:bg-surface-container transition-colors active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="hidden sm:flex w-9 h-9 rounded-full bg-surface-container-high/80 border border-surface-container items-center justify-center text-app-text-main hover:bg-surface-container transition-colors active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <User className="w-4 h-4 text-app-text-muted" />
           </button>
