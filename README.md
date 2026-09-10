@@ -11,6 +11,7 @@
 [![Google Gemini](https://img.shields.io/badge/Google%20Gemini-2.5%20Flash-4285F4?style=for-the-badge&logo=google)](https://ai.google.dev/)
 [![Firebase](https://img.shields.io/badge/Firebase-Firestore%20v12-FFCA28?style=for-the-badge&logo=firebase)](https://firebase.google.com/)
 [![Upstash Redis](https://img.shields.io/badge/Upstash-Redis%20Rate%20Limit-00E699?style=for-the-badge&logo=redis)](https://upstash.com/)
+[![Live Demo](https://img.shields.io/badge/Live%20Demo-Vercel%20Production-0070F3?style=for-the-badge&logo=vercel)](https://ai-calorie-activity-tracker.vercel.app)
 [![Vitest](https://img.shields.io/badge/Vitest-58%20Passed%20(100%25)-6E9F18?style=for-the-badge&logo=vitest)](https://vitest.dev/)
 [![License](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](LICENSE)
 
@@ -18,6 +19,12 @@
   A production-ready, full-stack Health-Tech web application combining <b>Google Gemini 2.5 Multimodal Vision AI</b>, <b>Local-First dual persistence</b>, <b>proportional 100g nutrition scaling mathematics</b>, <b>daily energy balance tracking</b>, and an <b>enterprise-grade security shield</b> with IP anonymization, magic-byte binary validation, and an HMAC-signed Admin Showcase mode.
 </p>
 
+<p align="center">
+  <a href="https://ai-calorie-activity-tracker.vercel.app"><b>🚀 Experience the Live Demo on Vercel</b></a> •
+  <a href="https://github.com/Ramboyk/ai-calorie-activity-tracker"><b>📦 GitHub Repository</b></a>
+</p>
+
+[**Live Demo**](https://ai-calorie-activity-tracker.vercel.app) •
 [**Key Features**](#-core-features) •
 [**Live Screenshots**](#-screenshots-showcase) •
 [**System Architecture**](#-system-architecture) •
@@ -26,6 +33,12 @@
 [**Security Model**](#-security-privacy--gdpr-compliance)
 
 </div>
+
+---
+
+> [!TIP]
+> 🌐 **Production URL**: [https://ai-calorie-activity-tracker.vercel.app](https://ai-calorie-activity-tracker.vercel.app)  
+> 🛡️ **Showcase Admin Mode**: Navigate to `/admin` to unlock infinite AI analysis without rate-limiting constraints.
 
 ---
 
