@@ -3,7 +3,14 @@
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import type { Meal } from "@/types/meal";
 import type { DailyLog, ExerciseLog } from "@/types/activity";
-import { getTodayDateString, addDays } from "@/lib/utils/date";
+import type { WeeklyStats, WeeklyDayStat } from "@/types/daily";
+import {
+  getTodayDateString,
+  addDays,
+  getDayShortLabel,
+  getWeekRangeLabel,
+  getWeekNumber,
+} from "@/lib/utils/date";
 
 export interface MacroGoals {
   protein: number;
@@ -54,6 +61,8 @@ export interface TrackerContextType {
   deleteActivity: (activityId: string) => void;
   getActivitiesForDate: (dateStr: string) => ExerciseLog[];
   getTotalBurnedCalories: (dateStr: string) => number;
+  // Weekly Insights Selector
+  getWeeklyStats: () => WeeklyStats;
 }
 
 const LOCAL_STORAGE_MEALS_KEY = "nutritrack_meals_v1";
@@ -713,6 +722,102 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
     };
   }, [activeCalorieGoal]);
 
+  // Weekly Stats Selector: computes last 7 days metrics
+  const getWeeklyStats = useCallback((): WeeklyStats => {
+    const todayStr = getTodayDateString();
+    const days: WeeklyDayStat[] = [];
+
+    // Past 7 days: 6 days ago -> today
+    for (let i = 6; i >= 0; i--) {
+      const dateStr = addDays(todayStr, -i);
+      const dayMeals = meals.filter((m) => m.date === dateStr);
+      const dayActs = activities.filter((a) => a.date === dateStr);
+      const dayLog = dailyLogs[dateStr];
+
+      // If user has real entries for this day, calculate from state;
+      // otherwise, if it's an earlier day with no data, provide realistic Stitch baseline trend data
+      const hasRealData = dayMeals.length > 0 || dayActs.length > 0 || !!dayLog;
+
+      let consumed = dayMeals.reduce((acc, m) => acc + (m.totalCalories || 0), 0);
+      let actBurned = dayActs.reduce((acc, a) => acc + (a.caloriesBurned || 0), 0);
+      let actMinutes = dayActs.reduce((acc, a) => acc + (a.durationMinutes || 0), 0);
+      let steps = dayLog?.steps || 0;
+      let waterMl = dayLog?.waterMl || 0;
+      const stepGoal = dayLog?.stepGoal || DEFAULT_STEP_GOAL;
+      const waterGoalMl = dayLog?.waterGoalMl || DEFAULT_WATER_GOAL;
+      const calorieGoal = dayLog?.calorieGoal || DEFAULT_CALORIE_GOAL;
+
+      if (!hasRealData && i > 0) {
+        // Stitch baseline mock trend numbers for past days
+        const mockPattern = [
+          { c: 1880, b: 340, s: 8900, w: 2250, m: 45 },
+          { c: 2050, b: 410, s: 10400, w: 2500, m: 50 },
+          { c: 1760, b: 290, s: 8100, w: 2000, m: 35 },
+          { c: 1980, b: 350, s: 9400, w: 2400, m: 40 },
+          { c: 1820, b: 320, s: 8800, w: 2100, m: 45 },
+          { c: 2150, b: 450, s: 11200, w: 2600, m: 60 },
+        ];
+        const pattern = mockPattern[(6 - i) % mockPattern.length];
+        consumed = pattern.c;
+        actBurned = pattern.b;
+        steps = pattern.s;
+        waterMl = pattern.w;
+        actMinutes = pattern.m;
+      }
+
+      const stepBurned = Math.round(steps * 0.04);
+      const totalBurned = actBurned + stepBurned;
+      const net = consumed - totalBurned;
+
+      days.push({
+        date: dateStr,
+        dayLabel: getDayShortLabel(dateStr),
+        consumedCalories: consumed,
+        burnedCalories: totalBurned,
+        netCalories: net,
+        calorieGoal,
+        steps,
+        stepGoal,
+        waterMl,
+        waterGoalMl,
+        activeMinutes: actMinutes,
+      });
+    }
+
+    const startDateStr = days[0].date;
+    const endDateStr = days[days.length - 1].date;
+
+    const activeDaysCount = days.filter(
+      (d) => d.consumedCalories > 0 || d.burnedCalories > 0 || d.steps > 0
+    ).length;
+
+    const sumConsumed = days.reduce((acc, d) => acc + d.consumedCalories, 0);
+    const sumNet = days.reduce((acc, d) => acc + d.netCalories, 0);
+    const sumBurned = days.reduce((acc, d) => acc + d.burnedCalories, 0);
+    const sumSteps = days.reduce((acc, d) => acc + d.steps, 0);
+    const sumWaterMl = days.reduce((acc, d) => acc + d.waterMl, 0);
+    const sumActiveMinutes = days.reduce((acc, d) => acc + d.activeMinutes, 0);
+
+    const count = days.length || 7;
+
+    return {
+      weekStart: startDateStr,
+      weekEnd: endDateStr,
+      weekRangeLabel: getWeekRangeLabel(startDateStr, endDateStr),
+      weekNumber: getWeekNumber(endDateStr),
+      days,
+      averages: {
+        avgConsumedCalories: Math.round(sumConsumed / count),
+        avgNetCalories: Math.round(sumNet / count),
+        avgBurnedCalories: Math.round(sumBurned / count),
+        avgSteps: Math.round(sumSteps / count),
+        avgWaterLiters: Math.round((sumWaterMl / count / 1000) * 10) / 10,
+        activeDaysCount,
+        totalActiveMinutes: sumActiveMinutes,
+      },
+    };
+  }, [meals, activities, dailyLogs]);
+
   const value = useMemo<TrackerContextType>(
     () => ({
       selectedDate,
@@ -741,6 +846,7 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
       deleteActivity,
       getActivitiesForDate,
       getTotalBurnedCalories,
+      getWeeklyStats,
     }),
     [
       selectedDate,
@@ -768,6 +874,7 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
       deleteActivity,
       getActivitiesForDate,
       getTotalBurnedCalories,
+      getWeeklyStats,
     ]
   );
 

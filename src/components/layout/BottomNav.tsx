@@ -63,18 +63,17 @@ export function BottomNav({ onCaptureClick }: BottomNavProps) {
         </div>
 
         {/* Tab 3: Haftalık */}
-        <button
-          type="button"
-          onClick={() => setActiveTab("haftalik")}
+        <Link
+          href="/weekly"
           className={`flex flex-col items-center justify-center min-w-[3.5rem] h-12 rounded-xl transition-colors ${
-            activeTab === "haftalik" && !isAnalyzePage
+            pathname === "/weekly"
               ? "text-primary font-bold"
               : "text-app-text-muted hover:text-app-text-main"
           }`}
         >
           <BarChart3 className="w-5 h-5" />
           <span className="text-[10px] mt-1">Haftalık</span>
-        </button>
+        </Link>
 
         {/* Tab 4: Profil */}
         <button

@@ -36,3 +36,10 @@ export { AddFoodItemModal, type AddFoodItemModalProps } from "./meal/AddFoodItem
 export { AddExerciseModal, type AddExerciseModalProps } from "./activity/AddExerciseModal";
 export { StepTrackerCard, type StepTrackerCardProps } from "./activity/StepTrackerCard";
 export { WaterTrackerCard, type WaterTrackerCardProps } from "./activity/WaterTrackerCard";
+
+// Weekly Analytics & Charts Components
+export { WeeklyStatCards, type WeeklyStatCardsProps } from "./weekly/WeeklyStatCards";
+export { CalorieTrendChart, type CalorieTrendChartProps } from "./weekly/CalorieTrendChart";
+export { ActivityTrendChart, type ActivityTrendChartProps } from "./weekly/ActivityTrendChart";
+export { WaterTrendChart, type WaterTrendChartProps } from "./weekly/WaterTrendChart";
+

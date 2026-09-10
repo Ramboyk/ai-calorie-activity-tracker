@@ -28,30 +28,34 @@ export interface DailySummary {
   exercises: ExerciseLog[];
 }
 
-export interface WeeklyAverage {
-  caloriesConsumed: number;
-  caloriesBurned: number;
-  steps: number;
-  waterLiters: number;
-  activeDaysCount: number;
-  totalActiveDurationMinutes: number;
-}
-
-export interface WeeklyDayBarData {
-  dayLabel: string; // Pzt, Sal, Çar, etc.
+export interface WeeklyDayStat {
   date: string; // YYYY-MM-DD
-  value: number;
-  target: number;
-  percentage: number;
+  dayLabel: string; // Pzt, Sal, Çar, Per, Cum, Cmt, Paz
+  consumedCalories: number;
+  burnedCalories: number;
+  netCalories: number;
+  calorieGoal: number;
+  steps: number;
+  stepGoal: number;
+  waterMl: number;
+  waterGoalMl: number;
+  activeMinutes: number;
 }
 
-export interface WeeklyTrend {
+export interface WeeklyStats {
   weekStart: string; // YYYY-MM-DD
   weekEnd: string; // YYYY-MM-DD
+  weekRangeLabel: string; // örn: "4 Eyl – 10 Eyl"
   weekNumber: number;
-  days: DailySummary[];
-  averages: WeeklyAverage;
-  calorieBars: WeeklyDayBarData[];
-  stepBars: WeeklyDayBarData[];
-  waterBars: WeeklyDayBarData[];
+  days: WeeklyDayStat[];
+  averages: {
+    avgConsumedCalories: number;
+    avgNetCalories: number;
+    avgBurnedCalories: number;
+    avgSteps: number;
+    avgWaterLiters: number;
+    activeDaysCount: number;
+    totalActiveMinutes: number;
+  };
 }
+
