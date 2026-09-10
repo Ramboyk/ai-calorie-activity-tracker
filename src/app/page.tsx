@@ -13,34 +13,13 @@ import {
   ActivitySummaryCard,
   DisclaimerBanner,
 } from "@/components";
-import type { DailySummary } from "@/types/daily";
+import { useTracker } from "@/context";
+import { formatDisplayDate } from "@/lib/utils/date";
 import type { Meal } from "@/types/meal";
+import type { StepsData, WaterLog, ExerciseLog } from "@/types/activity";
 
-const initialMockDailyData: DailySummary = {
-  date: "2026-09-10",
-  userId: "user_demo_1",
-  calorieGoal: 2000,
-  caloriesConsumed: 1420,
-  caloriesBurned: 320,
-  netCalories: 1100,
-  remainingCalories: 580,
-  macros: {
-    protein: {
-      consumedGrams: 92,
-      goalGrams: 120,
-      percentage: 76.6,
-    },
-    carbs: {
-      consumedGrams: 145,
-      goalGrams: 220,
-      percentage: 65.9,
-    },
-    fat: {
-      consumedGrams: 48,
-      goalGrams: 65,
-      percentage: 73.8,
-    },
-  },
+// Static mock activity data for items not yet migrated to context
+const mockActivityState = {
   steps: {
     date: "2026-09-10",
     count: 8420,
@@ -48,8 +27,8 @@ const initialMockDailyData: DailySummary = {
     distanceKm: 6.2,
     activeMinutes: 55,
     caloriesBurned: 245,
-    syncSource: "apple_health",
-  },
+    syncSource: "apple_health" as const,
+  } satisfies StepsData,
   water: {
     date: "2026-09-10",
     currentMl: 1750,
@@ -60,155 +39,7 @@ const initialMockDailyData: DailySummary = {
       { id: "w_3", time: "14:20", amountMl: 500 },
       { id: "w_4", time: "16:45", amountMl: 250 },
     ],
-  },
-  meals: [
-    {
-      id: "meal_1",
-      userId: "user_demo_1",
-      date: "2026-09-10",
-      time: "08:30",
-      type: "breakfast",
-      name: "Avokadolu Poşe Yumurtalı Tost",
-      totalCalories: 420,
-      totalProtein: 22,
-      totalCarbs: 38,
-      totalFat: 20,
-      imageUrl:
-        "https://lh3.googleusercontent.com/aida-public/AB6AXuCStMLE1P0r0z1IRwK-_4zi9YemSoXyHewC_gpqn7uFbU2hICAaE26OxH3vwQ3EfU9iWHipLTMAPiuZSi9lmy2ImW9Pl1e1K3IBdY32SxltvDMUdJJNj1V6HMzJ6Mg5HfOBaF5yjklPT1Or607xX7_VQqmatUxXgalHSusGeRQpaEhqI-SSAe4LXL1Kh99lbnZRGqqAg3ps1MOtJcLOrhIh7rU0DNLj1dOVBts9cLnWhmJ4UB58_Og",
-      aiConfidence: {
-        score: 94,
-        level: "high",
-        modelVersion: "Gemini-2.5-Flash-Vision",
-      },
-      createdAt: "2026-09-10T08:32:00Z",
-      items: [
-        {
-          id: "item_1_1",
-          name: "Ekşi Mayalı Ekmek",
-          portion: 2,
-          portionUnit: "slice",
-          calories: 160,
-          protein: 6,
-          carbs: 30,
-          fat: 1.5,
-        },
-        {
-          id: "item_1_2",
-          name: "Poşe Yumurta",
-          portion: 2,
-          portionUnit: "piece",
-          calories: 140,
-          protein: 12,
-          carbs: 1,
-          fat: 10,
-        },
-        {
-          id: "item_1_3",
-          name: "Avokado Dilimleri",
-          portion: 50,
-          portionUnit: "g",
-          calories: 120,
-          protein: 4,
-          carbs: 7,
-          fat: 8.5,
-        },
-      ],
-    },
-    {
-      id: "meal_2",
-      userId: "user_demo_1",
-      date: "2026-09-10",
-      time: "13:10",
-      type: "lunch",
-      name: "Izgara Tavuklu Pirinç Kasesi",
-      totalCalories: 560,
-      totalProtein: 50,
-      totalCarbs: 62,
-      totalFat: 13,
-      imageUrl:
-        "https://lh3.googleusercontent.com/aida-public/AB6AXuCaO6Xi9ZYE0WXZUHPhu2D8JlO5MML1yzHPtjzTRhzL_7ZETxKyYauju4D37R0Cwb5ByKbrrW6Sj-DEdmd0ihV1AK2atdibd0x6stKMsn4Cfm5zO1qmlXWhrLqG4DgWacpIVckZVJeCm2UXE6HerP80wvHaOWjeCWzPgSrgLIvRujcYS0Wt96fOQEExRZZznUEIx0jjCUVYfrJ1qe3x6go72TjAIxM14dAZClPSdlqnUAW1AMICShc",
-      aiConfidence: {
-        score: 91,
-        level: "high",
-        modelVersion: "Gemini-2.5-Flash-Vision",
-      },
-      createdAt: "2026-09-10T13:12:00Z",
-      items: [
-        {
-          id: "item_2_1",
-          name: "Izgara Tavuk Göğsü",
-          portion: 180,
-          portionUnit: "g",
-          calories: 290,
-          protein: 44,
-          carbs: 0,
-          fat: 6,
-        },
-        {
-          id: "item_2_2",
-          name: "Yasemin Pirinci",
-          portion: 150,
-          portionUnit: "g",
-          calories: 210,
-          protein: 4,
-          carbs: 48,
-          fat: 1,
-        },
-        {
-          id: "item_2_3",
-          name: "Buharda Brokoli & Havuç",
-          portion: 100,
-          portionUnit: "g",
-          calories: 60,
-          protein: 2,
-          carbs: 14,
-          fat: 6,
-        },
-      ],
-    },
-    {
-      id: "meal_3",
-      userId: "user_demo_1",
-      date: "2026-09-10",
-      time: "16:20",
-      type: "snack",
-      name: "Orman Meyveli Süzme Yoğurt",
-      totalCalories: 210,
-      totalProtein: 20,
-      totalCarbs: 24,
-      totalFat: 4,
-      imageUrl:
-        "https://lh3.googleusercontent.com/aida-public/AB6AXuAk1E0wvIA1ZPv_OrvwLNwDCiXdNqTLBZdDQpn3HvyBmg6eCLbXCg6ZFlKVcPVV4h1Yim9L85L8TJkTHzgvDyL2pAxNMMcU6eH3PFSKl0DqHy4lQbxO62DOIEXPloxD2DD5EQt9GVGo2FrfqmQ-97ysv2G5A9jLg2MAIEpRDdjZ6yTF1HlGHZqRJA2KJXmPr5_NeboFMfRsKXmhlpDq3R4vCgzPqLP8F95nRG4Z_xU_ku81h3RS7Yg",
-      aiConfidence: {
-        score: 88,
-        level: "medium",
-        modelVersion: "Gemini-2.5-Flash-Vision",
-      },
-      createdAt: "2026-09-10T16:22:00Z",
-      items: [
-        {
-          id: "item_3_1",
-          name: "Süzme Yoğurt (%2 Yağ)",
-          portion: 200,
-          portionUnit: "g",
-          calories: 140,
-          protein: 18,
-          carbs: 8,
-          fat: 4,
-        },
-        {
-          id: "item_3_2",
-          name: "Taze Yaban Mersini & Ahududu",
-          portion: 80,
-          portionUnit: "g",
-          calories: 70,
-          protein: 2,
-          carbs: 16,
-          fat: 0,
-        },
-      ],
-    },
-  ],
+  } satisfies WaterLog,
   exercises: [
     {
       id: "ex_1",
@@ -232,13 +63,25 @@ const initialMockDailyData: DailySummary = {
       caloriesBurned: 175,
       createdAt: "2026-09-10T18:15:00Z",
     },
-  ],
+  ] satisfies ExerciseLog[],
 };
 
 export default function DashboardPage() {
   const router = useRouter();
-  const [dailyData, setDailyData] = useState<DailySummary>(initialMockDailyData);
+  const {
+    selectedDate,
+    getMealsForDate,
+    getDailyNutrition,
+    deleteMeal,
+    calorieGoal,
+    macroGoals,
+  } = useTracker();
+
+  const [waterState, setWaterState] = useState<WaterLog>(mockActivityState.water);
   const [notification, setNotification] = useState<string | null>(null);
+
+  const currentMeals = getMealsForDate(selectedDate);
+  const nutrition = getDailyNutrition(selectedDate);
 
   const showNotification = (msg: string) => {
     setNotification(msg);
@@ -246,12 +89,9 @@ export default function DashboardPage() {
   };
 
   const handleAddWater = (amountMl: number) => {
-    setDailyData((prev) => ({
+    setWaterState((prev) => ({
       ...prev,
-      water: {
-        ...prev.water,
-        currentMl: prev.water.currentMl + amountMl,
-      },
+      currentMl: prev.currentMl + amountMl,
     }));
     showNotification(`+${amountMl} ml su başarıyla kaydedildi!`);
   };
@@ -265,17 +105,24 @@ export default function DashboardPage() {
   };
 
   const handleMealClick = (meal: Meal) => {
-    showNotification(`${meal.name} seçildi (Öğün detay ekranı)`);
+    showNotification(`${meal.name} seçildi (${meal.totalCalories} kcal)`);
   };
+
+  const handleDeleteMeal = (mealId: string) => {
+    deleteMeal(mealId);
+    showNotification("Öğün başarıyla silindi");
+  };
+
+  // Fixed burned calories for demo
+  const totalBurnedCalories = mockActivityState.exercises.reduce(
+    (acc, ex) => acc + ex.caloriesBurned,
+    0
+  );
 
   return (
     <div className="min-h-screen flex flex-col bg-surface text-app-text-main antialiased selection:bg-primary-light selection:text-primary">
-      {/* Top Sticky Header */}
-      <Header
-        currentDateText="10 Eylül, Çarşamba"
-        onPrevDay={() => showNotification("Önceki günün verileri")}
-        onNextDay={() => showNotification("Sonraki günün verileri")}
-      />
+      {/* Top Sticky Header bound to TrackerContext */}
+      <Header />
 
       {/* Main Responsive Grid Container */}
       <main className="flex-1 w-full pt-4 sm:pt-6 pb-28 md:pb-12">
@@ -292,38 +139,66 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             {/* Left / Primary Column (Hero Calorie + Meal Section) */}
             <div className="lg:col-span-7 xl:col-span-8 space-y-6">
-              {/* Hero Calorie Balance Card */}
+              {/* Dynamic Hero Calorie Balance Card */}
               <CalorieHeroCard
-                calorieGoal={dailyData.calorieGoal}
-                caloriesConsumed={dailyData.caloriesConsumed}
-                caloriesBurned={dailyData.caloriesBurned}
-                dateLabel="10 Eylül, Çarşamba"
+                calorieGoal={calorieGoal}
+                caloriesConsumed={nutrition.consumedCalories}
+                caloriesBurned={totalBurnedCalories}
+                dateLabel={formatDisplayDate(selectedDate)}
               />
 
-              {/* Today's Meals Section */}
+              {/* Dynamic Today's Meals Section */}
               <MealSection
-                meals={dailyData.meals}
+                meals={currentMeals}
                 onAddMealClick={handleAddMealClick}
                 onMealClick={handleMealClick}
+                onDeleteMeal={handleDeleteMeal}
               />
             </div>
 
             {/* Right / Sidebar Column (Macros + Steps & Water + Activity) */}
             <div className="lg:col-span-5 xl:col-span-4 space-y-6">
-              {/* Macro Distribution Card */}
-              <MacroDistribution macros={dailyData.macros} />
+              {/* Dynamic Macro Distribution Card */}
+              <MacroDistribution
+                macros={{
+                  protein: {
+                    consumedGrams: nutrition.totalProtein,
+                    goalGrams: macroGoals.protein,
+                    percentage:
+                      macroGoals.protein > 0
+                        ? Math.round((nutrition.totalProtein / macroGoals.protein) * 100)
+                        : 0,
+                  },
+                  carbs: {
+                    consumedGrams: nutrition.totalCarbs,
+                    goalGrams: macroGoals.carbs,
+                    percentage:
+                      macroGoals.carbs > 0
+                        ? Math.round((nutrition.totalCarbs / macroGoals.carbs) * 100)
+                        : 0,
+                  },
+                  fat: {
+                    consumedGrams: nutrition.totalFat,
+                    goalGrams: macroGoals.fat,
+                    percentage:
+                      macroGoals.fat > 0
+                        ? Math.round((nutrition.totalFat / macroGoals.fat) * 100)
+                        : 0,
+                  },
+                }}
+              />
 
               {/* Steps & Water Quick Metrics Grid */}
               <QuickMetrics
-                steps={dailyData.steps}
-                water={dailyData.water}
+                steps={mockActivityState.steps}
+                water={waterState}
                 onAddWater={handleAddWater}
               />
 
               {/* Activity & Exercises Summary Card */}
               <ActivitySummaryCard
-                exercises={dailyData.exercises}
-                totalBurnedCalories={dailyData.caloriesBurned}
+                exercises={mockActivityState.exercises}
+                totalBurnedCalories={totalBurnedCalories}
               />
             </div>
           </div>

@@ -4,6 +4,8 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Container } from "./Container";
+import { useTracker } from "@/context";
+import { formatDisplayDate } from "@/lib/utils/date";
 import { Sparkles, ChevronLeft, ChevronRight, Calendar, User } from "lucide-react";
 
 export interface HeaderProps {
@@ -13,11 +15,18 @@ export interface HeaderProps {
 }
 
 export function Header({
-  currentDateText = "10 Eylül, Çarşamba",
+  currentDateText,
   onPrevDay,
   onNextDay,
 }: HeaderProps) {
   const pathname = usePathname();
+  const tracker = useTracker();
+
+  const activeDateText = currentDateText || formatDisplayDate(tracker.selectedDate);
+
+  const handlePrev = onPrevDay || tracker.goToPrevDay;
+  const handleNext = onNextDay || tracker.goToNextDay;
+  const handleDateClick = tracker.goToToday;
 
   const navItems = [
     { id: "bugun", label: "Bugün", href: "/" },
@@ -48,22 +57,29 @@ export function Header({
         <div className="flex items-center gap-1.5 bg-surface-container-low/80 p-1 rounded-full border border-surface-container/60 shadow-xs">
           <button
             type="button"
-            onClick={onPrevDay}
+            onClick={handlePrev}
             aria-label="Önceki Gün"
+            title="Önceki Gün"
             className="w-8 h-8 rounded-full flex items-center justify-center text-app-text-muted hover:text-app-text-main hover:bg-surface-container transition-colors active:scale-95"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
 
-          <div className="flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold text-app-text-main select-none">
+          <button
+            type="button"
+            onClick={handleDateClick}
+            title="Bugüne Dön"
+            className="flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-semibold text-app-text-main select-none hover:bg-surface-container rounded-full transition-colors active:scale-95"
+          >
             <Calendar className="w-3.5 h-3.5 text-primary hidden sm:block" />
-            <span className="whitespace-nowrap">{currentDateText}</span>
-          </div>
+            <span className="whitespace-nowrap">{activeDateText}</span>
+          </button>
 
           <button
             type="button"
-            onClick={onNextDay}
+            onClick={handleNext}
             aria-label="Sonraki Gün"
+            title="Sonraki Gün"
             className="w-8 h-8 rounded-full flex items-center justify-center text-app-text-muted hover:text-app-text-main hover:bg-surface-container transition-colors active:scale-95"
           >
             <ChevronRight className="w-4 h-4" />

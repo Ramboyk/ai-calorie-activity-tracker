@@ -21,6 +21,7 @@ import type {
   EditableFoodItem,
   Meal,
 } from "@/types/meal";
+import { useTracker } from "@/context";
 import {
   ArrowLeft,
   Sparkles,
@@ -36,6 +37,7 @@ import {
 
 export default function AnalyzeMealPage() {
   const router = useRouter();
+  const tracker = useTracker();
 
   // Smart default meal type based on hour of day
   const defaultMealType = useMemo<MealType>(() => {
@@ -219,12 +221,13 @@ export default function AnalyzeMealPage() {
       })),
     };
 
-    console.log("[NutriTrack AI] Kaydedilen Öğün (Phase 6 için hazır):", finalMeal);
-    setSaveSuccessMessage("Öğün başarıyla doğrulandı ve kaydedildi!");
+    console.log("[NutriTrack AI] Kaydedilen Öğün (Phase 6 devrede):", finalMeal);
+    tracker.addMeal(finalMeal);
+    setSaveSuccessMessage("Öğün başarıyla doğrulandı ve günlüğe kaydedildi!");
 
     setTimeout(() => {
       router.push("/");
-    }, 1200);
+    }, 1000);
   };
 
   return (
