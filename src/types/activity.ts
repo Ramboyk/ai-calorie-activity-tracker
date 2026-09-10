@@ -49,6 +49,7 @@ export interface DailyLog {
   stepGoal: number;
   waterMl: number;
   waterGoalMl: number;
+  calorieGoal?: number;
   distanceKm?: number;
   activeMinutes?: number;
 }

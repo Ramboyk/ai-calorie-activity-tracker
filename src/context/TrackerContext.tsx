@@ -47,6 +47,7 @@ export interface TrackerContextType {
   setWater: (ml: number, dateStr?: string) => void;
   updateSteps: (steps: number, dateStr?: string) => void;
   updateStepGoal: (goal: number, dateStr?: string) => void;
+  updateCalorieGoal: (goal: number, dateStr?: string) => void;
   getDailyLog: (dateStr: string) => DailyLog;
   // Activity Actions
   addActivity: (activityData: Omit<ExerciseLog, "id" | "createdAt">) => ExerciseLog;
@@ -60,11 +61,6 @@ const LOCAL_STORAGE_ACTIVITIES_KEY = "nutritrack_activities_v1";
 const LOCAL_STORAGE_DAILY_LOGS_KEY = "nutritrack_daily_logs_v1";
 
 const DEFAULT_CALORIE_GOAL = 2000;
-const DEFAULT_MACRO_GOALS: MacroGoals = {
-  protein: 120,
-  carbs: 220,
-  fat: 65,
-};
 
 const DEFAULT_STEP_GOAL = 10000;
 const DEFAULT_WATER_GOAL = 2500;
@@ -553,6 +549,33 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
     [selectedDate, persistDailyLogs]
   );
 
+  // Calorie Goal Actions
+  const updateCalorieGoal = useCallback(
+    (goal: number, targetDate?: string) => {
+      const dateKey = targetDate || selectedDate;
+      const validGoal = Math.min(6000, Math.max(1000, goal));
+      setDailyLogs((prev) => {
+        const current = prev[dateKey] || {
+          date: dateKey,
+          steps: 0,
+          stepGoal: DEFAULT_STEP_GOAL,
+          waterMl: 0,
+          waterGoalMl: DEFAULT_WATER_GOAL,
+          distanceKm: 0,
+          activeMinutes: 0,
+        };
+        const updatedLog: DailyLog = {
+          ...current,
+          calorieGoal: validGoal,
+        };
+        const updated = { ...prev, [dateKey]: updatedLog };
+        persistDailyLogs(updated);
+        return updated;
+      });
+    },
+    [selectedDate, persistDailyLogs]
+  );
+
   const updateStepGoal = useCallback(
     (goal: number, targetDate?: string) => {
       const dateKey = targetDate || selectedDate;
@@ -647,6 +670,8 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
   const getDailyNutrition = useCallback(
     (dateStr: string): DailyNutritionSummary => {
       const dayMeals = meals.filter((m) => m.date === dateStr);
+      const dayLog = dailyLogs[dateStr];
+      const targetCalorieGoal = dayLog?.calorieGoal || DEFAULT_CALORIE_GOAL;
 
       const consumedCalories = dayMeals.reduce((acc, m) => acc + (m.totalCalories || 0), 0);
       const totalProtein = Math.round(dayMeals.reduce((acc, m) => acc + (m.totalProtein || 0), 0) * 10) / 10;
@@ -654,29 +679,46 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
       const totalFat = Math.round(dayMeals.reduce((acc, m) => acc + (m.totalFat || 0), 0) * 10) / 10;
 
       const burnedCalories = getTotalBurnedCalories(dateStr);
-      const remainingCalories = Math.max(0, DEFAULT_CALORIE_GOAL - (consumedCalories - burnedCalories));
       const netCalories = consumedCalories - burnedCalories;
+      const remainingCalories = Math.max(0, targetCalorieGoal - netCalories);
 
       return {
         consumedCalories,
         totalProtein,
         totalCarbs,
         totalFat,
-        calorieGoal: DEFAULT_CALORIE_GOAL,
+        calorieGoal: targetCalorieGoal,
         remainingCalories,
         netCalories,
         burnedCalories,
       };
     },
-    [meals, getTotalBurnedCalories]
+    [meals, dailyLogs, getTotalBurnedCalories]
   );
+
+  // Dynamically derive current date's calorieGoal and balanced macro goals (25% protein, 50% carb, 25% fat)
+  const currentDailyLog = dailyLogs[selectedDate];
+  const activeCalorieGoal = currentDailyLog?.calorieGoal || DEFAULT_CALORIE_GOAL;
+
+  const dynamicMacroGoals: MacroGoals = useMemo(() => {
+    // 1g Protein = 4 kcal, 1g Carbs = 4 kcal, 1g Fat = 9 kcal
+    const proteinGrams = Math.round((activeCalorieGoal * 0.25) / 4);
+    const carbsGrams = Math.round((activeCalorieGoal * 0.50) / 4);
+    const fatGrams = Math.round((activeCalorieGoal * 0.25) / 9);
+
+    return {
+      protein: proteinGrams,
+      carbs: carbsGrams,
+      fat: fatGrams,
+    };
+  }, [activeCalorieGoal]);
 
   const value = useMemo<TrackerContextType>(
     () => ({
       selectedDate,
       isHydrated,
-      calorieGoal: DEFAULT_CALORIE_GOAL,
-      macroGoals: DEFAULT_MACRO_GOALS,
+      calorieGoal: activeCalorieGoal,
+      macroGoals: dynamicMacroGoals,
       meals,
       activities,
       dailyLogs,
@@ -693,6 +735,7 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
       setWater,
       updateSteps,
       updateStepGoal,
+      updateCalorieGoal,
       getDailyLog,
       addActivity,
       deleteActivity,
@@ -702,6 +745,8 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
     [
       selectedDate,
       isHydrated,
+      activeCalorieGoal,
+      dynamicMacroGoals,
       meals,
       activities,
       dailyLogs,
@@ -717,6 +762,7 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
       setWater,
       updateSteps,
       updateStepGoal,
+      updateCalorieGoal,
       getDailyLog,
       addActivity,
       deleteActivity,

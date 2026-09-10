@@ -1,32 +1,60 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { Flame, Activity, TrendingUp, CheckCircle2 } from "lucide-react";
+import { Flame, Activity, TrendingUp, CheckCircle2, Edit2, AlertCircle, Check, X } from "lucide-react";
 
 export interface CalorieHeroCardProps {
   calorieGoal: number;
   caloriesConsumed: number;
   caloriesBurned: number;
   dateLabel?: string;
+  onUpdateGoal?: (newGoal: number) => void;
 }
 
 export function CalorieHeroCard({
   calorieGoal = 2000,
-  caloriesConsumed = 1420,
-  caloriesBurned = 320,
+  caloriesConsumed = 0,
+  caloriesBurned = 0,
   dateLabel = "Günlük Rapor",
+  onUpdateGoal,
 }: CalorieHeroCardProps) {
-  const netCalories = Math.max(0, caloriesConsumed - caloriesBurned);
-  const remainingCalories = Math.max(0, calorieGoal - netCalories);
+  const [isEditingGoal, setIsEditingGoal] = useState<boolean>(false);
+  const [goalInput, setGoalInput] = useState<string>(String(calorieGoal));
+
+  // Safe division & energy balance formulas
+  const safeGoal = Math.max(1000, calorieGoal || 2000);
+  const netCalories = caloriesConsumed - caloriesBurned;
+  const remainingCalories = Math.max(0, safeGoal - netCalories);
 
   // SVG circular ring calculations
   // Circle radius r = 66, circumference = 2 * PI * 66 ≈ 414.69
   const radius = 66;
   const circumference = 2 * Math.PI * radius;
-  const progressPercent = Math.min(100, Math.round((netCalories / calorieGoal) * 100));
-  const strokeDashoffset = circumference - (circumference * progressPercent) / 100;
+  // Progress percentage (can exceed 100 for color trigger)
+  const exactPercent = (netCalories / safeGoal) * 100;
+  const isExceeded = netCalories > safeGoal;
+  const isNearGoal = exactPercent >= 85 && !isExceeded;
+
+  const clampedProgressPercent = Math.min(100, Math.max(0, exactPercent));
+  const strokeDashoffset = circumference - (circumference * clampedProgressPercent) / 100;
+
+  // Ring stroke color based on status
+  const ringStrokeColor = isExceeded
+    ? "#ba1a1a" // error red
+    : isNearGoal
+    ? "#00855d" // vibrant primary
+    : "#006948"; // default deep emerald
+
+  const handleSaveGoal = (e: React.FormEvent) => {
+    e.preventDefault();
+    const val = parseInt(goalInput, 10);
+    if (val && val >= 1000 && val <= 6000 && onUpdateGoal) {
+      onUpdateGoal(val);
+      setIsEditingGoal(false);
+    }
+  };
 
   return (
     <Card variant="hero" className="w-full relative overflow-hidden">
@@ -36,14 +64,79 @@ export function CalorieHeroCard({
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <div>
           <CardTitle as="h2">Enerji Dengesi</CardTitle>
-          <CardDescription>{dateLabel} • Hedef ve kalori yakım durumu</CardDescription>
+          <CardDescription>{dateLabel} • Net kalori ve hedef dengesi</CardDescription>
         </div>
-        <Badge variant="primary" showDot leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}>
-          Hedefinde
-        </Badge>
+
+        <div className="flex items-center gap-2">
+          {isExceeded ? (
+            <Badge variant="calorie" showDot leftIcon={<AlertCircle className="w-3.5 h-3.5" />}>
+              Hedef Aşıldı
+            </Badge>
+          ) : (
+            <Badge variant="primary" showDot leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}>
+              Hedefinde
+            </Badge>
+          )}
+
+          {onUpdateGoal && (
+            <button
+              type="button"
+              onClick={() => {
+                setGoalInput(String(calorieGoal));
+                setIsEditingGoal(!isEditingGoal);
+              }}
+              title="Kalori Hedefini Düzenle"
+              aria-label="Kalori Hedefini Düzenle"
+              className="w-8 h-8 rounded-full flex items-center justify-center text-app-text-muted hover:text-primary hover:bg-surface-container transition-colors active:scale-95"
+            >
+              <Edit2 className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
       </CardHeader>
 
-      <CardContent className="space-y-6 pt-2">
+      <CardContent className="space-y-5 pt-1">
+        {/* Inline Goal Editor Drawer */}
+        {isEditingGoal && (
+          <form
+            onSubmit={handleSaveGoal}
+            className="p-3 bg-surface-container-low rounded-2xl flex items-center gap-2 border border-surface-container animate-fade-in"
+          >
+            <div className="flex-1">
+              <label htmlFor="hero-goal-input" className="text-[11px] font-semibold text-app-text-muted block mb-1">
+                Günlük Kalori Hedefi (1,000 - 6,000 kcal)
+              </label>
+              <input
+                id="hero-goal-input"
+                type="number"
+                min="1000"
+                max="6000"
+                step="50"
+                value={goalInput}
+                onChange={(e) => setGoalInput(e.target.value)}
+                className="w-full h-10 px-3 rounded-lg bg-white border border-surface-container focus:border-primary text-app-text-main text-sm font-bold outline-none tabular-nums"
+                autoFocus
+              />
+            </div>
+            <div className="flex items-center gap-1 self-end mb-0.5">
+              <button
+                type="submit"
+                className="h-10 px-3 rounded-lg bg-primary text-white text-xs font-bold flex items-center gap-1 shadow-xs hover:bg-primary-hover active:scale-95 transition-all"
+              >
+                <Check className="w-3.5 h-3.5" />
+                Kaydet
+              </button>
+              <button
+                type="button"
+                onClick={() => setIsEditingGoal(false)}
+                className="h-10 px-2.5 rounded-lg border border-surface-container text-app-text-muted hover:text-app-text-main text-xs font-medium transition-colors"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </form>
+        )}
+
         {/* Ring Chart Centerpiece */}
         <div className="flex flex-col items-center justify-center py-2 relative">
           <div className="relative w-48 h-48 flex items-center justify-center">
@@ -64,7 +157,7 @@ export function CalorieHeroCard({
                 cy="80"
                 fill="transparent"
                 r={radius}
-                stroke="#006948"
+                stroke={ringStrokeColor}
                 strokeWidth="12"
                 strokeDasharray={circumference}
                 strokeDashoffset={strokeDashoffset}
@@ -75,22 +168,28 @@ export function CalorieHeroCard({
 
             <div className="absolute inset-0 flex flex-col items-center justify-center text-center select-none">
               <span className="text-[11px] uppercase tracking-wider font-semibold text-app-text-muted">
-                Kalan Kalori
+                {isExceeded ? "Aşılan Miktar" : "Kalan Kalori"}
               </span>
               <div className="flex items-baseline space-x-0.5">
-                <span className="text-4xl font-extrabold text-app-text-main tabular-nums tracking-tight">
-                  {remainingCalories.toLocaleString("tr-TR")}
+                <span
+                  className={`text-4xl font-extrabold tabular-nums tracking-tight ${
+                    isExceeded ? "text-error" : "text-app-text-main"
+                  }`}
+                >
+                  {isExceeded
+                    ? `+${(netCalories - safeGoal).toLocaleString("tr-TR")}`
+                    : remainingCalories.toLocaleString("tr-TR")}
                 </span>
                 <span className="text-xs font-semibold text-app-text-muted">kcal</span>
               </div>
               <span className="text-xs font-semibold text-primary tabular-nums mt-0.5">
-                {netCalories.toLocaleString("tr-TR")} / {calorieGoal.toLocaleString("tr-TR")} kcal
+                Net: {netCalories.toLocaleString("tr-TR")} / {safeGoal.toLocaleString("tr-TR")} kcal
               </span>
             </div>
           </div>
         </div>
 
-        {/* 3-Part Metric Breakdown Grid */}
+        {/* 3-Part Metric Breakdown Grid (Alınan / Yakılan / Net) */}
         <div className="grid grid-cols-3 gap-2 sm:gap-3 pt-3 border-t border-surface-container">
           {/* Consumed */}
           <div className="flex flex-col items-center text-center p-2.5 sm:p-3 rounded-2xl bg-surface-container-low">
@@ -117,15 +216,21 @@ export function CalorieHeroCard({
           </div>
 
           {/* Net */}
-          <div className="flex flex-col items-center text-center p-2.5 sm:p-3 rounded-2xl bg-primary-soft/80 border border-primary/10">
-            <span className="text-[11px] font-semibold text-primary flex items-center gap-1">
-              <TrendingUp className="w-3 h-3 text-primary" />
+          <div
+            className={`flex flex-col items-center text-center p-2.5 sm:p-3 rounded-2xl border transition-colors ${
+              isExceeded
+                ? "bg-error/10 border-error/20 text-error"
+                : "bg-primary-soft/80 border-primary/10 text-primary"
+            }`}
+          >
+            <span className="text-[11px] font-semibold flex items-center gap-1">
+              <TrendingUp className="w-3 h-3" />
               Net
             </span>
-            <span className="text-base sm:text-lg font-extrabold text-primary tabular-nums mt-0.5">
+            <span className="text-base sm:text-lg font-extrabold tabular-nums mt-0.5">
               {netCalories.toLocaleString("tr-TR")}
             </span>
-            <span className="text-[10px] text-primary/80 tabular-nums">kcal</span>
+            <span className="text-[10px] opacity-80 tabular-nums">kcal</span>
           </div>
         </div>
       </CardContent>
@@ -134,3 +239,4 @@ export function CalorieHeroCard({
 }
 
 export default CalorieHeroCard;
+

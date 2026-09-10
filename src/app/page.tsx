@@ -31,6 +31,7 @@ export default function DashboardPage() {
     macroGoals,
     getDailyLog,
     addWater,
+    updateCalorieGoal,
     getActivitiesForDate,
     getTotalBurnedCalories,
   } = useTracker();
@@ -92,6 +93,11 @@ export default function DashboardPage() {
     entries: [],
   };
 
+  const handleUpdateCalorieGoal = (newGoal: number) => {
+    updateCalorieGoal(newGoal, selectedDate);
+    showNotification(`Yeni kalori hedefi kaydedildi: ${newGoal.toLocaleString("tr-TR")} kcal`);
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-surface text-app-text-main antialiased selection:bg-primary-light selection:text-primary">
       {/* Top Sticky Header bound to TrackerContext */}
@@ -114,10 +120,11 @@ export default function DashboardPage() {
             <div className="lg:col-span-7 xl:col-span-8 space-y-6">
               {/* Dynamic Hero Calorie Balance Card */}
               <CalorieHeroCard
-                calorieGoal={calorieGoal}
+                calorieGoal={nutrition.calorieGoal || calorieGoal}
                 caloriesConsumed={nutrition.consumedCalories}
                 caloriesBurned={totalBurnedCalories}
                 dateLabel={formatDisplayDate(selectedDate)}
+                onUpdateGoal={handleUpdateCalorieGoal}
               />
 
               {/* Dynamic Today's Meals Section */}

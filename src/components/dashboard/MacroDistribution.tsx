@@ -62,7 +62,9 @@ export function MacroDistribution({ macros }: MacroDistributionProps) {
 
       <CardContent className="space-y-4">
         {macroItems.map((item) => {
-          const clampedPercent = Math.min(100, item.percent);
+          const clampedPercent = Math.min(100, Math.max(0, item.percent));
+          const remainingGrams = Math.max(0, Math.round((item.goal - item.consumed) * 10) / 10);
+          const isOver = item.consumed > item.goal;
 
           return (
             <div key={item.id} className="space-y-1.5">
@@ -88,6 +90,11 @@ export function MacroDistribution({ macros }: MacroDistributionProps) {
                   className={`h-full rounded-full transition-all duration-500 ease-out ${item.barColor}`}
                   style={{ width: `${clampedPercent}%` }}
                 />
+              </div>
+
+              <div className="flex items-center justify-between text-[11px] text-app-text-muted tabular-nums">
+                <span>{isOver ? "Hedef aşıldı" : `Kalan: ${remainingGrams}g`}</span>
+                <span>{item.percent > 100 ? `+%${Math.round(item.percent - 100)}` : ""}</span>
               </div>
             </div>
           );
