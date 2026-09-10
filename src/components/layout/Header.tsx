@@ -6,7 +6,8 @@ import { usePathname } from "next/navigation";
 import { Container } from "./Container";
 import { useTracker } from "@/context";
 import { formatDisplayDate } from "@/lib/utils/date";
-import { Sparkles, ChevronLeft, ChevronRight, Calendar, User } from "lucide-react";
+import { cn } from "@/lib/utils/cn";
+import { Sparkles, ChevronLeft, ChevronRight, Calendar, User, Cloud, RefreshCw, AlertCircle } from "lucide-react";
 
 export interface HeaderProps {
   currentDateText?: string;
@@ -110,8 +111,54 @@ export function Header({
           })}
         </nav>
 
-        {/* Right Side: Profile / User Icon */}
+        {/* Right Side: Cloud Sync Indicator & Profile / User Icon */}
         <div className="flex items-center gap-2 shrink-0">
+          <div
+            className={cn(
+              "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all border select-none",
+              tracker.syncStatus === "synced" && "bg-primary-soft text-primary border-primary/20",
+              tracker.syncStatus === "syncing" && "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20",
+              tracker.syncStatus === "local" && "bg-surface-container-low text-app-text-muted border-surface-container",
+              tracker.syncStatus === "error" && "bg-rose-500/10 text-rose-500 border-rose-500/20"
+            )}
+            title={
+              tracker.syncStatus === "synced"
+                ? "Bulut Senkronize (Firestore)"
+                : tracker.syncStatus === "syncing"
+                ? "Bulut ile senkronize ediliyor..."
+                : tracker.syncStatus === "error"
+                ? "Bulut senkronizasyonunda hata oluştu"
+                : "Yerel Hafıza Modu (Local-First)"
+            }
+          >
+            {tracker.syncStatus === "synced" && (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-primary" />
+                <Cloud className="w-3.5 h-3.5 text-primary" />
+                <span className="hidden sm:inline font-semibold">Bulut Senkron</span>
+              </>
+            )}
+            {tracker.syncStatus === "syncing" && (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-500" />
+                <span className="hidden sm:inline font-semibold">Senkronize</span>
+              </>
+            )}
+            {tracker.syncStatus === "local" && (
+              <>
+                <span className="w-1.5 h-1.5 rounded-full bg-app-text-muted/60" />
+                <Cloud className="w-3.5 h-3.5 text-app-text-muted" />
+                <span className="hidden sm:inline font-semibold">Yerel Hafıza</span>
+              </>
+            )}
+            {tracker.syncStatus === "error" && (
+              <>
+                <AlertCircle className="w-3.5 h-3.5 text-rose-500" />
+                <span className="hidden sm:inline font-semibold">Senk. Hatası</span>
+              </>
+            )}
+          </div>
+
           <button
             type="button"
             aria-label="Kullanıcı Profili"

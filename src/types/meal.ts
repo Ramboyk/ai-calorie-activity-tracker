@@ -31,6 +31,7 @@ export interface Meal {
     level: AiConfidenceLevel;
     modelVersion?: string;
   };
+  notes?: string;
   createdAt: string; // ISO timestamp
   updatedAt?: string;
 }

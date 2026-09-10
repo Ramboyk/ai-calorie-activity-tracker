@@ -11,6 +11,15 @@ import {
   getWeekRangeLabel,
   getWeekNumber,
 } from "@/lib/utils/date";
+import {
+  saveMealToFirestore,
+  deleteMealFromFirestore,
+  saveDailyLogToFirestore,
+  saveActivityToFirestore,
+  deleteActivityFromFirestore,
+  fetchUserDataFromFirestore,
+} from "@/lib/firebase/firestore";
+import { isFirebaseConfigured } from "@/lib/firebase/client";
 
 export interface MacroGoals {
   protein: number;
@@ -29,9 +38,12 @@ export interface DailyNutritionSummary {
   burnedCalories: number;
 }
 
+export type SyncStatus = "local" | "synced" | "syncing" | "error";
+
 export interface TrackerContextType {
   selectedDate: string;
   isHydrated: boolean;
+  syncStatus: SyncStatus;
   calorieGoal: number;
   macroGoals: MacroGoals;
   meals: Meal[];
@@ -63,6 +75,8 @@ export interface TrackerContextType {
   getTotalBurnedCalories: (dateStr: string) => number;
   // Weekly Insights Selector
   getWeeklyStats: () => WeeklyStats;
+  // Cloud Sync
+  refreshFromCloud: () => Promise<void>;
 }
 
 const LOCAL_STORAGE_MEALS_KEY = "nutritrack_meals_v1";
@@ -281,8 +295,82 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
   const [activities, setActivities] = useState<ExerciseLog[]>([]);
   const [dailyLogs, setDailyLogs] = useState<Record<string, DailyLog>>({});
   const [isHydrated, setIsHydrated] = useState<boolean>(false);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(() =>
+    isFirebaseConfigured() ? "synced" : "local"
+  );
 
-  // Read LocalStorage on Client Mount (SSR-Safe)
+  // Sync to LocalStorage helpers
+  const persistMeals = useCallback((newMeals: Meal[]) => {
+    try {
+      localStorage.setItem(LOCAL_STORAGE_MEALS_KEY, JSON.stringify(newMeals));
+    } catch (err) {
+      console.error("[NutriTrack AI] localStorage yazma hatası (meals):", err);
+    }
+  }, []);
+
+  const persistActivities = useCallback((newActs: ExerciseLog[]) => {
+    try {
+      localStorage.setItem(LOCAL_STORAGE_ACTIVITIES_KEY, JSON.stringify(newActs));
+    } catch (err) {
+      console.error("[NutriTrack AI] localStorage yazma hatası (activities):", err);
+    }
+  }, []);
+
+  const persistDailyLogs = useCallback((newLogs: Record<string, DailyLog>) => {
+    try {
+      localStorage.setItem(LOCAL_STORAGE_DAILY_LOGS_KEY, JSON.stringify(newLogs));
+    } catch (err) {
+      console.error("[NutriTrack AI] localStorage yazma hatası (dailyLogs):", err);
+    }
+  }, []);
+
+  // Background Cloud Sync helpers
+  const syncDailyLogInBackground = useCallback((log: DailyLog) => {
+    if (isFirebaseConfigured()) {
+      setSyncStatus("syncing");
+      saveDailyLogToFirestore(log)
+        .then(() => setSyncStatus("synced"))
+        .catch((err) => {
+          console.warn("[NutriTrack AI] Firestore saveDailyLog error:", err);
+          setSyncStatus("error");
+        });
+    }
+  }, []);
+
+  const refreshFromCloud = useCallback(async () => {
+    if (!isFirebaseConfigured()) {
+      setSyncStatus("local");
+      return;
+    }
+
+    try {
+      setSyncStatus("syncing");
+      const cloudData = await fetchUserDataFromFirestore();
+      if (cloudData) {
+        if (cloudData.meals && cloudData.meals.length > 0) {
+          setMeals(cloudData.meals);
+          persistMeals(cloudData.meals);
+        }
+        if (cloudData.activities && cloudData.activities.length > 0) {
+          setActivities(cloudData.activities);
+          persistActivities(cloudData.activities);
+        }
+        if (cloudData.dailyLogs && Object.keys(cloudData.dailyLogs).length > 0) {
+          setDailyLogs((prev) => {
+            const merged = { ...prev, ...cloudData.dailyLogs };
+            persistDailyLogs(merged);
+            return merged;
+          });
+        }
+      }
+      setSyncStatus("synced");
+    } catch (err) {
+      console.warn("[NutriTrack AI] Firestore senkronizasyon hatası:", err);
+      setSyncStatus("error");
+    }
+  }, [persistMeals, persistActivities, persistDailyLogs]);
+
+  // Read LocalStorage on Client Mount (SSR-Safe) & Background Cloud Hydration
   useEffect(() => {
     queueMicrotask(() => {
       const todayStr = getTodayDateString();
@@ -354,33 +442,13 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
       } finally {
         setIsHydrated(true);
       }
+
+      // Silent cloud synchronization after local hydration
+      if (isFirebaseConfigured()) {
+        void refreshFromCloud();
+      }
     });
-  }, []);
-
-  // Sync to LocalStorage helpers
-  const persistMeals = useCallback((newMeals: Meal[]) => {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_MEALS_KEY, JSON.stringify(newMeals));
-    } catch (err) {
-      console.error("[NutriTrack AI] localStorage yazma hatası (meals):", err);
-    }
-  }, []);
-
-  const persistActivities = useCallback((newActs: ExerciseLog[]) => {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_ACTIVITIES_KEY, JSON.stringify(newActs));
-    } catch (err) {
-      console.error("[NutriTrack AI] localStorage yazma hatası (activities):", err);
-    }
-  }, []);
-
-  const persistDailyLogs = useCallback((newLogs: Record<string, DailyLog>) => {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_DAILY_LOGS_KEY, JSON.stringify(newLogs));
-    } catch (err) {
-      console.error("[NutriTrack AI] localStorage yazma hatası (dailyLogs):", err);
-    }
-  }, []);
+  }, [refreshFromCloud]);
 
   // Meal Actions
   const addMeal = useCallback(
@@ -398,6 +466,16 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
         return updated;
       });
 
+      if (isFirebaseConfigured()) {
+        setSyncStatus("syncing");
+        saveMealToFirestore(newMeal)
+          .then(() => setSyncStatus("synced"))
+          .catch((err) => {
+            console.warn("[NutriTrack AI] Firestore addMeal error:", err);
+            setSyncStatus("error");
+          });
+      }
+
       return newMeal;
     },
     [selectedDate, persistMeals]
@@ -410,6 +488,16 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
         persistMeals(updated);
         return updated;
       });
+
+      if (isFirebaseConfigured()) {
+        setSyncStatus("syncing");
+        deleteMealFromFirestore(mealId)
+          .then(() => setSyncStatus("synced"))
+          .catch((err) => {
+            console.warn("[NutriTrack AI] Firestore deleteMeal error:", err);
+            setSyncStatus("error");
+          });
+      }
     },
     [persistMeals]
   );
@@ -467,10 +555,11 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
         };
         const updated = { ...prev, [dateKey]: updatedLog };
         persistDailyLogs(updated);
+        syncDailyLogInBackground(updatedLog);
         return updated;
       });
     },
-    [selectedDate, persistDailyLogs]
+    [selectedDate, persistDailyLogs, syncDailyLogInBackground]
   );
 
   const resetWater = useCallback(
@@ -492,10 +581,11 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
         };
         const updated = { ...prev, [dateKey]: updatedLog };
         persistDailyLogs(updated);
+        syncDailyLogInBackground(updatedLog);
         return updated;
       });
     },
-    [selectedDate, persistDailyLogs]
+    [selectedDate, persistDailyLogs, syncDailyLogInBackground]
   );
 
   const setWater = useCallback(
@@ -518,10 +608,11 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
         };
         const updated = { ...prev, [dateKey]: updatedLog };
         persistDailyLogs(updated);
+        syncDailyLogInBackground(updatedLog);
         return updated;
       });
     },
-    [selectedDate, persistDailyLogs]
+    [selectedDate, persistDailyLogs, syncDailyLogInBackground]
   );
 
   // Steps Actions
@@ -552,10 +643,11 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
         };
         const updated = { ...prev, [dateKey]: updatedLog };
         persistDailyLogs(updated);
+        syncDailyLogInBackground(updatedLog);
         return updated;
       });
     },
-    [selectedDate, persistDailyLogs]
+    [selectedDate, persistDailyLogs, syncDailyLogInBackground]
   );
 
   // Calorie Goal Actions
@@ -579,10 +671,11 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
         };
         const updated = { ...prev, [dateKey]: updatedLog };
         persistDailyLogs(updated);
+        syncDailyLogInBackground(updatedLog);
         return updated;
       });
     },
-    [selectedDate, persistDailyLogs]
+    [selectedDate, persistDailyLogs, syncDailyLogInBackground]
   );
 
   const updateStepGoal = useCallback(
@@ -605,10 +698,11 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
         };
         const updated = { ...prev, [dateKey]: updatedLog };
         persistDailyLogs(updated);
+        syncDailyLogInBackground(updatedLog);
         return updated;
       });
     },
-    [selectedDate, persistDailyLogs]
+    [selectedDate, persistDailyLogs, syncDailyLogInBackground]
   );
 
   // Activity Actions
@@ -633,6 +727,16 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
         return updated;
       });
 
+      if (isFirebaseConfigured()) {
+        setSyncStatus("syncing");
+        saveActivityToFirestore(newAct)
+          .then(() => setSyncStatus("synced"))
+          .catch((err) => {
+            console.warn("[NutriTrack AI] Firestore saveActivity error:", err);
+            setSyncStatus("error");
+          });
+      }
+
       return newAct;
     },
     [selectedDate, persistActivities]
@@ -645,6 +749,16 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
         persistActivities(updated);
         return updated;
       });
+
+      if (isFirebaseConfigured()) {
+        setSyncStatus("syncing");
+        deleteActivityFromFirestore(activityId)
+          .then(() => setSyncStatus("synced"))
+          .catch((err) => {
+            console.warn("[NutriTrack AI] Firestore deleteActivity error:", err);
+            setSyncStatus("error");
+          });
+      }
     },
     [persistActivities]
   );
@@ -822,6 +936,7 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
     () => ({
       selectedDate,
       isHydrated,
+      syncStatus,
       calorieGoal: activeCalorieGoal,
       macroGoals: dynamicMacroGoals,
       meals,
@@ -847,10 +962,12 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
       getActivitiesForDate,
       getTotalBurnedCalories,
       getWeeklyStats,
+      refreshFromCloud,
     }),
     [
       selectedDate,
       isHydrated,
+      syncStatus,
       activeCalorieGoal,
       dynamicMacroGoals,
       meals,
@@ -875,6 +992,7 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
       getActivitiesForDate,
       getTotalBurnedCalories,
       getWeeklyStats,
+      refreshFromCloud,
     ]
   );
 
