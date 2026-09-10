@@ -6,16 +6,138 @@ import {
   MEAL_ANALYSIS_SCHEMA,
   FALLBACK_MEAL_ANALYSIS,
 } from "@/lib/ai/prompts";
+import {
+  anonymizeIp,
+  checkRateLimit,
+  incrementRateLimit,
+  getRateLimitStatus,
+  AI_DAILY_LIMIT,
+  GLOBAL_AI_DAILY_LIMIT,
+} from "@/lib/rate-limit/limiter";
 import type { GeminiMealAnalysisResult } from "@/types/meal";
 import type { ApiResponse } from "@/types/api";
 
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
+/**
+ * Extracts client IP securely from standard proxy headers or defaults to localhost.
+ */
+function getClientIp(request: NextRequest): string {
+  const forwarded = request.headers.get("x-forwarded-for");
+  if (forwarded) {
+    return forwarded.split(",")[0].trim();
+  }
+  const realIp = request.headers.get("x-real-ip");
+  if (realIp) {
+    return realIp.trim();
+  }
+  return "127.0.0.1";
+}
+
+/**
+ * Checks if the request carries valid admin authorization (Phase 12 preparation).
+ */
+function checkIsAdmin(request: NextRequest): boolean {
+  const adminCookie = request.cookies.get("admin_session")?.value;
+  const adminHeader = request.headers.get("x-admin-token");
+  const expectedSecret = process.env.ADMIN_SESSION_SECRET;
+
+  if (
+    expectedSecret &&
+    expectedSecret !== "generate_a_random_32_byte_secret_here" &&
+    (adminCookie === expectedSecret || adminHeader === expectedSecret)
+  ) {
+    return true;
+  }
+  return false;
+}
+
+/**
+ * GET /api/analyze-meal
+ * Returns current remaining AI quotas for client IP without consuming any quota.
+ */
+export async function GET(
+  request: NextRequest
+): Promise<
+  NextResponse<
+    ApiResponse<{
+      remainingLimit: number;
+      dailyLimit: number;
+      remainingGlobal: number;
+      globalLimit: number;
+      isLimited: boolean;
+      isAdmin: boolean;
+    }>
+  >
+> {
+  const rawIp = getClientIp(request);
+  const hashedIp = anonymizeIp(rawIp);
+  const isAdmin = checkIsAdmin(request);
+
+  if (isAdmin) {
+    return NextResponse.json({
+      success: true,
+      data: {
+        remainingLimit: 999,
+        dailyLimit: AI_DAILY_LIMIT,
+        remainingGlobal: 999,
+        globalLimit: GLOBAL_AI_DAILY_LIMIT,
+        isLimited: false,
+        isAdmin: true,
+      },
+    });
+  }
+
+  const status = await getRateLimitStatus(hashedIp);
+
+  return NextResponse.json({
+    success: true,
+    data: {
+      remainingLimit: status.remainingIp,
+      dailyLimit: status.ipLimit,
+      remainingGlobal: status.remainingGlobal,
+      globalLimit: status.globalLimit,
+      isLimited: !status.allowed,
+      isAdmin: false,
+    },
+  });
+}
+
+/**
+ * POST /api/analyze-meal
+ * Performs multimodal food recognition protected by dual-guard rate limits.
+ */
 export async function POST(
   request: NextRequest
 ): Promise<NextResponse<ApiResponse<GeminiMealAnalysisResult>>> {
   try {
+    const rawIp = getClientIp(request);
+    const hashedIp = anonymizeIp(rawIp);
+    const isAdmin = checkIsAdmin(request);
+
+    let currentRemaining = AI_DAILY_LIMIT;
+
+    // 1. Quota Check (Non-admin requests)
+    if (!isAdmin) {
+      const quotaCheck = await checkRateLimit(hashedIp);
+      if (!quotaCheck.allowed) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: {
+              code: quotaCheck.code || "RATE_LIMIT_EXCEEDED",
+              message: quotaCheck.reason || "Günlük AI analiz limitine ulaşıldı.",
+            },
+            remainingLimit: 0,
+          },
+          { status: 429 }
+        );
+      }
+      currentRemaining = quotaCheck.remainingIp;
+    }
+
+    // 2. Parse Multipart Form Data
     const formData = await request.formData();
     const imageEntry = formData.get("image");
 
@@ -27,6 +149,7 @@ export async function POST(
             code: "MISSING_IMAGE",
             message: "Lütfen analiz edilecek bir yemek fotoğrafı yükleyin.",
           },
+          remainingLimit: currentRemaining,
         },
         { status: 400 }
       );
@@ -34,7 +157,7 @@ export async function POST(
 
     const file = imageEntry as File;
 
-    // Server-side MIME validation
+    // 3. Server-side MIME validation (Quota not consumed on validation failures)
     if (!ALLOWED_MIME_TYPES.includes(file.type)) {
       return NextResponse.json(
         {
@@ -43,12 +166,13 @@ export async function POST(
             code: "INVALID_MIME_TYPE",
             message: "Yalnızca JPG, PNG veya WEBP formatındaki görseller desteklenmektedir.",
           },
+          remainingLimit: currentRemaining,
         },
         { status: 400 }
       );
     }
 
-    // Server-side size validation
+    // 4. Server-side size validation
     if (file.size > MAX_FILE_SIZE_BYTES) {
       return NextResponse.json(
         {
@@ -57,26 +181,33 @@ export async function POST(
             code: "FILE_TOO_LARGE",
             message: "Görsel boyutu 5 MB üst sınırını aşamaz.",
           },
+          remainingLimit: currentRemaining,
         },
         { status: 400 }
       );
     }
 
-    // Check if GEMINI_API_KEY is configured
+    // 5. Check if GEMINI_API_KEY is configured
     if (!hasValidGeminiKey()) {
       console.warn(
         "[NutriTrack AI] GEMINI_API_KEY tanımlı değil veya şablon değerinde. Geliştirme ortamı için simülasyon yanıtı kullanılıyor."
       );
+
+      if (!isAdmin) {
+        const remaining = await incrementRateLimit(hashedIp);
+        currentRemaining = remaining.remainingIp;
+      }
 
       // Return realistic mock analysis to maintain UX during dev
       return NextResponse.json({
         success: true,
         data: FALLBACK_MEAL_ANALYSIS,
         message: "Demo modu: AI tahmini yerel simülasyon ile üretildi.",
+        remainingLimit: isAdmin ? 999 : currentRemaining,
       });
     }
 
-    // Convert file to base64 buffer in-memory (no disk writing)
+    // 6. Convert file to base64 buffer in-memory (no disk writing)
     const arrayBuffer = await file.arrayBuffer();
     const base64Data = Buffer.from(arrayBuffer).toString("base64");
 
@@ -85,10 +216,11 @@ export async function POST(
       return NextResponse.json({
         success: true,
         data: FALLBACK_MEAL_ANALYSIS,
+        remainingLimit: isAdmin ? 999 : currentRemaining,
       });
     }
 
-    // Call Gemini Multimodal API with Structured Output schema
+    // 7. Call Gemini Multimodal API with Structured Output schema
     try {
       const response = await client.models.generateContent({
         model: "gemini-2.5-flash",
@@ -121,12 +253,24 @@ export async function POST(
 
       const parsedData = JSON.parse(responseText) as GeminiMealAnalysisResult;
 
+      // 8. Decrement quota only after successful AI analysis
+      if (!isAdmin) {
+        const remaining = await incrementRateLimit(hashedIp);
+        currentRemaining = remaining.remainingIp;
+      }
+
       return NextResponse.json({
         success: true,
         data: parsedData,
+        remainingLimit: isAdmin ? 999 : currentRemaining,
       });
     } catch (apiError: unknown) {
       console.error("[NutriTrack AI] Gemini Vision API çağrısı sırasında hata oluştu:", apiError);
+
+      if (!isAdmin) {
+        const remaining = await incrementRateLimit(hashedIp);
+        currentRemaining = remaining.remainingIp;
+      }
 
       // Gracefully fall back so user does not get a broken page
       return NextResponse.json({
@@ -139,6 +283,7 @@ export async function POST(
           ],
         },
         message: "Yedek besin modeli devreye alındı.",
+        remainingLimit: isAdmin ? 999 : currentRemaining,
       });
     }
   } catch (err: unknown) {

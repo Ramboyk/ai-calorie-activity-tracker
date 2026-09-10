@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -22,6 +22,7 @@ import type {
   Meal,
 } from "@/types/meal";
 import { useTracker } from "@/context";
+import { cn } from "@/lib/utils/cn";
 import {
   ArrowLeft,
   Sparkles,
@@ -33,6 +34,7 @@ import {
   Edit2,
   Utensils,
   Check,
+  ShieldAlert,
 } from "lucide-react";
 
 export default function AnalyzeMealPage() {
@@ -55,12 +57,48 @@ export default function AnalyzeMealPage() {
   const [analysisResult, setAnalysisResult] = useState<GeminiMealAnalysisResult | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
 
+  // Rate Limiting & Quota State (Phase 11)
+  const [remainingQuota, setRemainingQuota] = useState<number | null>(null);
+  const [dailyLimit, setDailyLimit] = useState<number>(3);
+  const [isQuotaExceeded, setIsQuotaExceeded] = useState<boolean>(false);
+  const [quotaExceededMessage, setQuotaExceededMessage] = useState<string>("");
+  const [isAdminUser, setIsAdminUser] = useState<boolean>(false);
+
   // Review & Editing State (Phase 5)
   const [isReviewMode, setIsReviewMode] = useState<boolean>(false);
   const [mealTitle, setMealTitle] = useState<string>("");
   const [editableItems, setEditableItems] = useState<EditableFoodItem[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
+
+  // Fetch remaining quota on page mount
+  useEffect(() => {
+    let isMounted = true;
+    async function fetchQuota() {
+      try {
+        const res = await fetch("/api/analyze-meal");
+        if (!res.ok) return;
+        const resJson = await res.json();
+        if (isMounted && resJson.success && resJson.data) {
+          setRemainingQuota(resJson.data.remainingLimit);
+          setDailyLimit(resJson.data.dailyLimit || 3);
+          setIsAdminUser(Boolean(resJson.data.isAdmin));
+          if (resJson.data.isLimited) {
+            setIsQuotaExceeded(true);
+            setQuotaExceededMessage(
+              "Bugünkü demo AI analiz hakkınız doldu. Yarın tekrar deneyebilirsiniz."
+            );
+          }
+        }
+      } catch (err) {
+        console.warn("[NutriTrack AI] Quota check error:", err);
+      }
+    }
+    fetchQuota();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const mealTypeOptions: { id: MealType; label: string }[] = [
     { id: "breakfast", label: "Kahvaltı" },
@@ -94,11 +132,25 @@ export default function AnalyzeMealPage() {
 
       const resJson = await response.json();
 
+      if (response.status === 429 || resJson.error?.code?.includes("LIMIT_EXCEEDED")) {
+        setIsQuotaExceeded(true);
+        setRemainingQuota(0);
+        setQuotaExceededMessage(
+          resJson.error?.message ||
+            "Bugünkü 3 ücretsiz AI analiz hakkınızı kullandınız. Yarın tekrar deneyebilirsiniz."
+        );
+        return;
+      }
+
       if (!response.ok || !resJson.success) {
         throw new Error(
           resJson.error?.message ||
             "Yemek analiz edilemedi. Lütfen daha net veya aydınlık bir fotoğraf deneyin."
         );
+      }
+
+      if (typeof resJson.remainingLimit === "number") {
+        setRemainingQuota(resJson.remainingLimit);
       }
 
       const result = resJson.data as GeminiMealAnalysisResult;
@@ -142,6 +194,40 @@ export default function AnalyzeMealPage() {
     } finally {
       setIsAnalyzing(false);
     }
+  };
+
+  const handleStartManualMeal = () => {
+    setMealTitle("Manuel Öğün");
+    setEditableItems([
+      {
+        id: `manual_item_${Date.now()}`,
+        name: "Yemek / Malzeme",
+        estimatedPortion: "1 porsiyon",
+        weightGrams: 150,
+        calories: 250,
+        protein: 15,
+        carbs: 25,
+        fat: 10,
+        base100g: {
+          calories: 167,
+          protein: 10,
+          carbs: 16.7,
+          fat: 6.7,
+        },
+      },
+    ]);
+    setAnalysisResult({
+      mealName: "Manuel Öğün",
+      items: [],
+      totalCalories: 250,
+      totalProtein: 15,
+      totalCarbs: 25,
+      totalFat: 10,
+      confidence: "medium",
+      notes: ["Manuel olarak oluşturuldu."],
+    });
+    setIsReviewMode(true);
+    setIsQuotaExceeded(false);
   };
 
   const handleResetAnalysis = () => {
@@ -247,9 +333,48 @@ export default function AnalyzeMealPage() {
               <span>Dashboard&apos;a Dön</span>
             </Link>
 
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container text-app-text-muted text-xs font-medium w-fit">
-              <Sparkles className="w-3.5 h-3.5 text-primary" />
-              <span>Gemini 2.5 Flash Vision devrede</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container text-app-text-muted text-xs font-medium w-fit">
+                <Sparkles className="w-3.5 h-3.5 text-primary" />
+                <span>Gemini 2.5 Flash Vision</span>
+              </div>
+
+              {/* Quota Badge (Phase 11) */}
+              <div
+                className={cn(
+                  "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all select-none",
+                  isAdminUser
+                    ? "bg-purple-500/10 border-purple-500/30 text-purple-600 dark:text-purple-400"
+                    : remainingQuota === 0
+                    ? "bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400"
+                    : (remainingQuota ?? dailyLimit) <= 1
+                    ? "bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400"
+                    : "bg-surface-container-low border-surface-container text-app-text-main"
+                )}
+                title={
+                  isAdminUser
+                    ? "Admin Bypass Aktif (Sınırsız AI Kotası)"
+                    : `Günlük Kalan AI Analiz: ${remainingQuota ?? dailyLimit} / ${dailyLimit}`
+                }
+              >
+                <span
+                  className={cn(
+                    "w-2 h-2 rounded-full",
+                    isAdminUser
+                      ? "bg-purple-500 animate-pulse"
+                      : remainingQuota === 0
+                      ? "bg-rose-500"
+                      : (remainingQuota ?? dailyLimit) <= 1
+                      ? "bg-amber-500"
+                      : "bg-emerald-500"
+                  )}
+                />
+                <span>
+                  {isAdminUser
+                    ? "Admin (Sınırsız AI)"
+                    : `Günlük Kalan AI Analiz: ${remainingQuota !== null ? remainingQuota : dailyLimit} / ${dailyLimit}`}
+                </span>
+              </div>
             </div>
           </div>
 
@@ -276,8 +401,55 @@ export default function AnalyzeMealPage() {
             </p>
           </div>
 
-          {/* API Error State Card */}
-          {apiError && (
+          {/* Rate Limit Polite Quota Exceeded Card (Phase 11) */}
+          {isQuotaExceeded && (
+            <div
+              role="alert"
+              className="p-6 sm:p-7 rounded-3xl bg-gradient-to-br from-amber-500/10 via-surface-container to-surface-container-low border border-amber-500/25 text-app-text-main space-y-4 animate-fade-in shadow-sm"
+            >
+              <div className="flex items-start gap-3.5">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+                  <ShieldAlert className="w-5 h-5" />
+                </div>
+                <div className="space-y-1.5 flex-1">
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base sm:text-lg font-extrabold text-app-text-main">
+                      Günlük AI Analiz Limiti
+                    </h3>
+                    <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                      0 / {dailyLimit} Kalan
+                    </span>
+                  </div>
+                  <p className="text-xs sm:text-sm text-app-text-muted leading-relaxed">
+                    {quotaExceededMessage ||
+                      "Portföy demo sürümümüzde API kotalarını korumak amacıyla günlük kullanım sınırlandırılmıştır."}
+                  </p>
+                  <p className="text-[11px] text-app-text-muted/80">
+                    İpucu: Manuel öğün ekleme, su ve aktivite takibi kısıtlama olmadan sıfır kesintiyle çalışmaya devam eder.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-surface-container">
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={handleStartManualMeal}
+                  leftIcon={<Utensils className="w-4 h-4" />}
+                >
+                  Manuel Öğün Ekle
+                </Button>
+                <Link href="/">
+                  <Button variant="outline" size="md">
+                    Dashboard&apos;a Dön
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {/* API Error State Card (Other Errors) */}
+          {apiError && !isQuotaExceeded && (
             <div
               role="alert"
               className="p-5 rounded-3xl bg-red-50/90 border border-red-200 text-app-error space-y-3 animate-fade-in shadow-xs"
@@ -451,6 +623,30 @@ export default function AnalyzeMealPage() {
                   className="w-full shadow-md shadow-primary/25"
                 >
                   Öğünü Günlüğe Kaydet
+                </Button>
+              </div>
+            </div>
+          ) : isQuotaExceeded ? (
+            /* Quota Exceeded Friendly Helper Container */
+            <div className="p-8 sm:p-10 rounded-3xl bg-surface-container-low/70 border border-dashed border-surface-container text-center space-y-3 animate-fade-in">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center mx-auto">
+                <Utensils className="w-6 h-6" />
+              </div>
+              <h3 className="text-sm font-bold text-app-text-main">
+                AI Analiz Kotası Doldu
+              </h3>
+              <p className="text-xs text-app-text-muted max-w-md mx-auto leading-relaxed">
+                Bugünkü ücretsiz yapay zekâ analiz limitiniz dolduğu için görsel yükleme geçici olarak kapalıdır.
+                Dilerseniz öğününüzü hemen manuel olarak ekleyebilirsiniz.
+              </p>
+              <div className="pt-2">
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={handleStartManualMeal}
+                  leftIcon={<Plus className="w-4 h-4" />}
+                >
+                  Manuel Olarak Öğün Ekle
                 </Button>
               </div>
             </div>

@@ -4,6 +4,7 @@ export interface ApiResponseSuccess<T> {
   success: true;
   data: T;
   message?: string;
+  remainingLimit?: number;
 }
 
 export interface ApiResponseError {
@@ -13,6 +14,7 @@ export interface ApiResponseError {
     message: string;
     details?: unknown;
   };
+  remainingLimit?: number;
 }
 
 export type ApiResponse<T> = ApiResponseSuccess<T> | ApiResponseError;
