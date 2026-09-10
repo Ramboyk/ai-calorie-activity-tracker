@@ -20,6 +20,7 @@ import {
   fetchUserDataFromFirestore,
 } from "@/lib/firebase/firestore";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
+import { ToastContainer, type ToastItem, type ToastType } from "@/components/ui/Toast";
 
 export interface MacroGoals {
   protein: number;
@@ -77,6 +78,8 @@ export interface TrackerContextType {
   getWeeklyStats: () => WeeklyStats;
   // Cloud Sync
   refreshFromCloud: () => Promise<void>;
+  // Toast Notification
+  showToast: (message: string, type?: ToastType) => void;
 }
 
 const LOCAL_STORAGE_MEALS_KEY = "nutritrack_meals_v1";
@@ -298,6 +301,20 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(() =>
     isFirebaseConfigured() ? "synced" : "local"
   );
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
+
+  const showToast = useCallback((message: string, type: ToastType = "success") => {
+    const id = `toast_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+    const newToast: ToastItem = { id, message, type };
+    setToasts((prev) => [...prev.slice(-3), newToast]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 3500);
+  }, []);
 
   // Sync to LocalStorage helpers
   const persistMeals = useCallback((newMeals: Meal[]) => {
@@ -476,9 +493,10 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
           });
       }
 
+      showToast("Öğün günlüğe kaydedildi 🥑", "success");
       return newMeal;
     },
-    [selectedDate, persistMeals]
+    [selectedDate, persistMeals, showToast]
   );
 
   const deleteMeal = useCallback(
@@ -498,8 +516,10 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
             setSyncStatus("error");
           });
       }
+
+      showToast("Öğün listeden silindi 🗑️", "info");
     },
-    [persistMeals]
+    [persistMeals, showToast]
   );
 
   // Date Navigators
@@ -558,8 +578,9 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
         syncDailyLogInBackground(updatedLog);
         return updated;
       });
+      showToast(`+${validAmount} ml su kaydedildi 💧`, "success");
     },
-    [selectedDate, persistDailyLogs, syncDailyLogInBackground]
+    [selectedDate, persistDailyLogs, syncDailyLogInBackground, showToast]
   );
 
   const resetWater = useCallback(
@@ -737,9 +758,10 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
           });
       }
 
+      showToast("Egzersiz eklendi 🏃", "success");
       return newAct;
     },
-    [selectedDate, persistActivities]
+    [selectedDate, persistActivities, showToast]
   );
 
   const deleteActivity = useCallback(
@@ -759,8 +781,10 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
             setSyncStatus("error");
           });
       }
+
+      showToast("Egzersiz silindi 🗑️", "info");
     },
-    [persistActivities]
+    [persistActivities, showToast]
   );
 
   const getActivitiesForDate = useCallback(
@@ -963,6 +987,7 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
       getTotalBurnedCalories,
       getWeeklyStats,
       refreshFromCloud,
+      showToast,
     }),
     [
       selectedDate,
@@ -993,10 +1018,16 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
       getTotalBurnedCalories,
       getWeeklyStats,
       refreshFromCloud,
+      showToast,
     ]
   );
 
-  return <TrackerContext.Provider value={value}>{children}</TrackerContext.Provider>;
+  return (
+    <TrackerContext.Provider value={value}>
+      {children}
+      <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+    </TrackerContext.Provider>
+  );
 }
 
 export function useTracker(): TrackerContextType {

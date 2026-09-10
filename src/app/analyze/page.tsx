@@ -522,7 +522,7 @@ export default function AnalyzeMealPage() {
                         key={opt.id}
                         type="button"
                         onClick={() => setMealType(opt.id)}
-                        className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 select-none ${
+                        className={`min-h-[44px] px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1.5 select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                           isSelected
                             ? "bg-primary text-white shadow-sm"
                             : "bg-surface-container text-app-text-main hover:bg-surface-container-high"
@@ -551,7 +551,7 @@ export default function AnalyzeMealPage() {
                     onChange={(e) => setMealTitle(e.target.value)}
                     placeholder="Öğün başlığı giriniz"
                     aria-label="Öğün başlığı"
-                    className="w-full bg-transparent font-bold text-base sm:text-lg text-app-text-main focus:outline-none"
+                    className="w-full bg-transparent font-bold text-base sm:text-lg text-app-text-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-lg px-2 py-1"
                   />
                   <Edit2 className="w-4 h-4 text-app-text-muted shrink-0" />
                 </div>
@@ -589,7 +589,7 @@ export default function AnalyzeMealPage() {
               <button
                 type="button"
                 onClick={() => setIsAddModalOpen(true)}
-                className="w-full py-3.5 px-4 rounded-2xl bg-surface-container-high hover:bg-surface-variant text-primary font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.99]"
+                className="w-full min-h-[48px] py-3.5 px-4 rounded-2xl bg-surface-container-high hover:bg-surface-variant text-primary font-bold text-sm flex items-center justify-center gap-2 transition-all active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
                 <Plus className="w-4 h-4" />
                 <span>Yeni Besin Ekle</span>

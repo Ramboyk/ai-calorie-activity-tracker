@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import { useRouter } from "next/navigation";
 import {
   Container,
@@ -34,9 +34,8 @@ export default function DashboardPage() {
     updateCalorieGoal,
     getActivitiesForDate,
     getTotalBurnedCalories,
+    showToast,
   } = useTracker();
-
-  const [notification, setNotification] = useState<string | null>(null);
 
   const currentMeals = getMealsForDate(selectedDate);
   const nutrition = getDailyNutrition(selectedDate);
@@ -44,14 +43,8 @@ export default function DashboardPage() {
   const dayExercises = getActivitiesForDate(selectedDate);
   const totalBurnedCalories = getTotalBurnedCalories(selectedDate);
 
-  const showNotification = (msg: string) => {
-    setNotification(msg);
-    setTimeout(() => setNotification(null), 3000);
-  };
-
   const handleAddWater = (amountMl: number) => {
     addWater(amountMl, selectedDate);
-    showNotification(`+${amountMl} ml su başarıyla kaydedildi!`);
   };
 
   const handleCaptureClick = () => {
@@ -63,12 +56,11 @@ export default function DashboardPage() {
   };
 
   const handleMealClick = (meal: Meal) => {
-    showNotification(`${meal.name} seçildi (${meal.totalCalories} kcal)`);
+    showToast(`${meal.name} seçildi (${meal.totalCalories} kcal)`, "info");
   };
 
   const handleDeleteMeal = (mealId: string) => {
     deleteMeal(mealId);
-    showNotification("Öğün başarıyla silindi");
   };
 
   const handleAddActivityClick = () => {
@@ -95,7 +87,7 @@ export default function DashboardPage() {
 
   const handleUpdateCalorieGoal = (newGoal: number) => {
     updateCalorieGoal(newGoal, selectedDate);
-    showNotification(`Yeni kalori hedefi kaydedildi: ${newGoal.toLocaleString("tr-TR")} kcal`);
+    showToast(`Yeni kalori hedefi kaydedildi: ${newGoal.toLocaleString("tr-TR")} kcal`, "success");
   };
 
   return (
@@ -106,13 +98,6 @@ export default function DashboardPage() {
       {/* Main Responsive Grid Container */}
       <main className="flex-1 w-full pt-4 sm:pt-6 pb-28 md:pb-12">
         <Container className="space-y-6">
-          {/* Notification Toast */}
-          {notification && (
-            <div className="fixed top-20 right-4 sm:right-8 z-50 bg-app-text-dark text-white text-xs font-semibold px-4 py-2.5 rounded-2xl shadow-lg border border-white/10 animate-fade-in flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-primary-light animate-ping" />
-              <span>{notification}</span>
-            </div>
-          )}
 
           {/* Desktop & Mobile Responsive Layout */}
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">

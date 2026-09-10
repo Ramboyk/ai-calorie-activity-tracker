@@ -1,7 +1,7 @@
 import React from "react";
 import { Card } from "@/components/ui/Card";
 import type { StepsData, WaterLog } from "@/types/activity";
-import { Footprints, Droplets, Plus } from "lucide-react";
+import { Footprints, Droplets, Plus, Check } from "lucide-react";
 
 export interface QuickMetricsProps {
   steps: StepsData;
@@ -16,10 +16,16 @@ export function QuickMetrics({
   onAddWater,
   onStepClick,
 }: QuickMetricsProps) {
+  const [recentlyAdded, setRecentlyAdded] = React.useState<250 | 500 | null>(null);
+
   const handleQuickAddWater = (amountMl: number) => {
     if (onAddWater) {
       onAddWater(amountMl);
     }
+    setRecentlyAdded(amountMl as 250 | 500);
+    setTimeout(() => {
+      setRecentlyAdded((prev) => (prev === amountMl ? null : prev));
+    }, 900);
   };
 
   const stepsPercent = Math.min(100, Math.round((steps.count / Math.max(1, steps.goal)) * 100));
@@ -109,18 +115,46 @@ export function QuickMetrics({
           <button
             type="button"
             onClick={() => handleQuickAddWater(250)}
-            className="h-11 min-h-[44px] flex items-center justify-center gap-1 rounded-xl bg-water-soft text-water text-xs font-bold hover:bg-water-soft/80 active:scale-95 transition-all"
+            aria-label="250 mililitre su ekle"
+            className={`h-11 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-water ${
+              recentlyAdded === 250
+                ? "bg-emerald-500 text-white shadow-xs scale-[0.98]"
+                : "bg-water-soft text-water hover:bg-water-soft/80"
+            }`}
           >
-            <Plus className="w-3.5 h-3.5" />
-            250 ml
+            {recentlyAdded === 250 ? (
+              <>
+                <Check className="w-4 h-4 animate-in zoom-in-50 duration-150" />
+                <span>+250 ml</span>
+              </>
+            ) : (
+              <>
+                <Plus className="w-3.5 h-3.5" />
+                <span>250 ml</span>
+              </>
+            )}
           </button>
           <button
             type="button"
             onClick={() => handleQuickAddWater(500)}
-            className="h-11 min-h-[44px] flex items-center justify-center gap-1 rounded-xl bg-water text-white text-xs font-bold hover:bg-water-hover active:scale-95 transition-all shadow-xs shadow-water/20"
+            aria-label="500 mililitre su ekle"
+            className={`h-11 min-h-[44px] flex items-center justify-center gap-1.5 rounded-xl text-xs font-bold transition-all active:scale-95 shadow-xs shadow-water/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-water ${
+              recentlyAdded === 500
+                ? "bg-emerald-600 text-white shadow-xs scale-[0.98]"
+                : "bg-water text-white hover:bg-water-hover"
+            }`}
           >
-            <Plus className="w-3.5 h-3.5" />
-            500 ml
+            {recentlyAdded === 500 ? (
+              <>
+                <Check className="w-4 h-4 animate-in zoom-in-50 duration-150" />
+                <span>+500 ml</span>
+              </>
+            ) : (
+              <>
+                <Plus className="w-3.5 h-3.5" />
+                <span>500 ml</span>
+              </>
+            )}
           </button>
         </div>
       </Card>

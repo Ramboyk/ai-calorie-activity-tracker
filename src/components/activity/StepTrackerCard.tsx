@@ -71,7 +71,7 @@ export function StepTrackerCard({
               setIsEditingGoal(false);
             }}
             aria-label="Adım sayısını düzenle"
-            className="h-9 px-2.5 rounded-full bg-surface-container-low hover:bg-surface-container text-app-text-muted hover:text-app-text-main text-xs font-semibold flex items-center gap-1 transition-all active:scale-95"
+            className="h-11 min-h-[44px] px-3.5 rounded-full bg-surface-container-low hover:bg-surface-container text-app-text-muted hover:text-app-text-main text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <Edit3 className="w-3.5 h-3.5" />
             <span>Adım Gir</span>
@@ -84,7 +84,7 @@ export function StepTrackerCard({
               setIsEditingSteps(false);
             }}
             aria-label="Adım hedefini düzenle"
-            className="h-9 px-2.5 rounded-full bg-surface-container-low hover:bg-surface-container text-primary text-xs font-semibold flex items-center gap-1 transition-all active:scale-95"
+            className="h-11 min-h-[44px] px-3.5 rounded-full bg-surface-container-low hover:bg-surface-container text-primary text-xs font-semibold flex items-center gap-1.5 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <Edit3 className="w-3.5 h-3.5" />
             <span>Hedef</span>
@@ -109,12 +109,13 @@ export function StepTrackerCard({
             value={newStepsInput}
             onChange={(e) => setNewStepsInput(e.target.value)}
             placeholder="Adım sayısı"
-            className="h-10 flex-1 px-3.5 bg-white text-app-text-main rounded-lg text-sm font-semibold outline-none border border-surface-container focus:border-primary"
+            className="h-11 min-h-[44px] flex-1 px-3.5 bg-white text-app-text-main rounded-lg text-sm font-semibold outline-none border border-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary tabular-nums"
             autoFocus
           />
           <button
             type="submit"
-            className="h-10 min-h-[44px] px-4 bg-primary text-white text-xs font-bold rounded-lg shadow-xs hover:bg-primary-hover active:scale-95 transition-all flex items-center gap-1"
+            aria-label="Adım Sayısını Kaydet"
+            className="h-11 min-h-[44px] min-w-[44px] px-4 bg-primary text-white text-xs font-bold rounded-lg shadow-xs hover:bg-primary-hover active:scale-95 transition-all flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <Check className="w-4 h-4" />
             Kaydet
@@ -140,12 +141,13 @@ export function StepTrackerCard({
             value={newGoalInput}
             onChange={(e) => setNewGoalInput(e.target.value)}
             placeholder="Hedef adım (örn: 10000)"
-            className="h-10 flex-1 px-3.5 bg-white text-app-text-main rounded-lg text-sm font-semibold outline-none border border-surface-container focus:border-primary"
+            className="h-11 min-h-[44px] flex-1 px-3.5 bg-white text-app-text-main rounded-lg text-sm font-semibold outline-none border border-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary tabular-nums"
             autoFocus
           />
           <button
             type="submit"
-            className="h-10 min-h-[44px] px-4 bg-primary text-white text-xs font-bold rounded-lg shadow-xs hover:bg-primary-hover active:scale-95 transition-all flex items-center gap-1"
+            aria-label="Adım Hedefini Uygula"
+            className="h-11 min-h-[44px] min-w-[44px] px-4 bg-primary text-white text-xs font-bold rounded-lg shadow-xs hover:bg-primary-hover active:scale-95 transition-all flex items-center gap-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <Check className="w-4 h-4" />
             Uygula

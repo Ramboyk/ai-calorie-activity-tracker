@@ -24,6 +24,17 @@ export function AddFoodItemModal({
   const [fat, setFat] = useState<string>("5");
   const [error, setError] = useState<string | null>(null);
 
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -101,8 +112,8 @@ export function AddFoodItemModal({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Kapat"
-            className="w-9 h-9 rounded-full flex items-center justify-center text-app-text-muted hover:bg-surface-container transition-colors"
+            aria-label="Modalı Kapat"
+            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center text-app-text-muted hover:text-app-text-main hover:bg-surface-container transition-colors active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <X className="w-4 h-4" />
           </button>
@@ -128,7 +139,7 @@ export function AddFoodItemModal({
               onChange={(e) => setName(e.target.value)}
               placeholder="Örn: Zeytinyağı, Ceviz İçi, Beyaz Peynir"
               required
-              className="w-full h-11 px-3.5 rounded-xl border border-surface-container bg-surface-container-low text-xs font-semibold text-app-text-main focus:outline-none focus:ring-2 focus:ring-primary/40"
+              className="w-full h-11 px-3.5 rounded-xl border border-surface-container bg-surface-container-low text-xs font-semibold text-app-text-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             />
           </div>
 
@@ -145,7 +156,7 @@ export function AddFoodItemModal({
                 value={weight}
                 onChange={(e) => setWeight(e.target.value)}
                 required
-                className="w-full h-11 px-3.5 rounded-xl border border-surface-container bg-surface-container-low text-xs font-semibold text-app-text-main focus:outline-none focus:ring-2 focus:ring-primary/40 tabular-nums"
+                className="w-full h-11 px-3.5 rounded-xl border border-surface-container bg-surface-container-low text-xs font-semibold text-app-text-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary tabular-nums"
               />
             </div>
 
@@ -159,7 +170,7 @@ export function AddFoodItemModal({
                 value={calories}
                 onChange={(e) => setCalories(e.target.value)}
                 required
-                className="w-full h-11 px-3.5 rounded-xl border border-surface-container bg-surface-container-low text-xs font-semibold text-app-text-main focus:outline-none focus:ring-2 focus:ring-primary/40 tabular-nums"
+                className="w-full h-11 px-3.5 rounded-xl border border-surface-container bg-surface-container-low text-xs font-semibold text-app-text-main focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary tabular-nums"
               />
             </div>
           </div>
@@ -176,7 +187,7 @@ export function AddFoodItemModal({
                 min="0"
                 value={protein}
                 onChange={(e) => setProtein(e.target.value)}
-                className="w-full h-10 px-2.5 rounded-xl border border-surface-container bg-surface-container-low text-xs font-bold text-primary focus:outline-none focus:ring-2 focus:ring-primary/40 tabular-nums"
+                className="w-full h-11 min-h-[44px] px-2.5 rounded-xl border border-surface-container bg-surface-container-low text-xs font-bold text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary tabular-nums"
               />
             </div>
 
@@ -190,7 +201,7 @@ export function AddFoodItemModal({
                 min="0"
                 value={carbs}
                 onChange={(e) => setCarbs(e.target.value)}
-                className="w-full h-10 px-2.5 rounded-xl border border-surface-container bg-surface-container-low text-xs font-bold text-calorie focus:outline-none focus:ring-2 focus:ring-primary/40 tabular-nums"
+                className="w-full h-11 min-h-[44px] px-2.5 rounded-xl border border-surface-container bg-surface-container-low text-xs font-bold text-calorie focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary tabular-nums"
               />
             </div>
 
@@ -204,7 +215,7 @@ export function AddFoodItemModal({
                 min="0"
                 value={fat}
                 onChange={(e) => setFat(e.target.value)}
-                className="w-full h-10 px-2.5 rounded-xl border border-surface-container bg-surface-container-low text-xs font-bold text-water focus:outline-none focus:ring-2 focus:ring-primary/40 tabular-nums"
+                className="w-full h-11 min-h-[44px] px-2.5 rounded-xl border border-surface-container bg-surface-container-low text-xs font-bold text-water focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary tabular-nums"
               />
             </div>
           </div>

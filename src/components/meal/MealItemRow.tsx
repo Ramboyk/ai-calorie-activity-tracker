@@ -59,7 +59,7 @@ export function MealItemRow({
             onChange={handleNameChange}
             placeholder="Besin adı"
             aria-label="Besin adı"
-            className="font-bold text-sm sm:text-base text-app-text-main bg-transparent w-full focus:outline-none focus:ring-1 focus:ring-primary/40 rounded-md px-1 py-0.5 truncate"
+            className="font-bold text-sm sm:text-base text-app-text-main bg-transparent w-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-md px-1 py-1 truncate"
           />
         </div>
 
@@ -69,13 +69,13 @@ export function MealItemRow({
           disabled={!canDelete}
           title={
             canDelete
-              ? "Besini Listeden Kaldır"
+              ? "Besini Listeden Sil"
               : "Öğünde en az bir besin kalemi bulunmalıdır"
           }
-          aria-label={`${item.name} besinini sil`}
-          className={`w-11 h-11 min-h-[44px] min-w-[44px] rounded-full flex items-center justify-center transition-colors shrink-0 ${
+          aria-label="Besini Listeden Sil"
+          className={`w-11 h-11 min-h-[44px] min-w-[44px] rounded-full flex items-center justify-center transition-colors shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error ${
             canDelete
-              ? "text-app-text-muted hover:text-app-error hover:bg-red-50 active:scale-95"
+              ? "text-app-text-muted hover:text-error hover:bg-rose-50 active:scale-95"
               : "text-outline/40 cursor-not-allowed"
           }`}
         >
@@ -96,8 +96,8 @@ export function MealItemRow({
               inputMode="numeric"
               value={item.weightGrams}
               onChange={handleWeightChange}
-              aria-label="Gramaj miktarı"
-              className="w-12 text-center text-xs sm:text-sm font-bold text-app-text-main bg-surface-container-lowest border border-surface-container rounded-md py-0.5 focus:outline-none focus:ring-2 focus:ring-primary/40 tabular-nums"
+              aria-label="Porsiyon gramajı"
+              className="w-12 text-center text-xs sm:text-sm font-bold text-app-text-main bg-surface-container-lowest border border-surface-container rounded-md py-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary tabular-nums"
             />
             <span className="text-[10px] text-app-text-muted font-bold">g</span>
           </div>

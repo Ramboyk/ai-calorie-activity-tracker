@@ -39,15 +39,10 @@ export default function ActivityPage() {
     deleteActivity,
     getActivitiesForDate,
     getTotalBurnedCalories,
+    showToast,
   } = useTracker();
 
   const [isAddExerciseOpen, setIsAddExerciseOpen] = useState<boolean>(false);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-
-  const showToast = (msg: string) => {
-    setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 3000);
-  };
 
   const dayLog = getDailyLog(selectedDate);
   const dayExercises = getActivitiesForDate(selectedDate);
@@ -56,12 +51,11 @@ export default function ActivityPage() {
 
   const handleAddWater = (amountMl: number) => {
     addWater(amountMl, selectedDate);
-    showToast(`+${amountMl} ml su başarıyla kaydedildi!`);
   };
 
   const handleResetWater = () => {
     resetWater(selectedDate);
-    showToast("Su tüketimi sıfırlandı");
+    showToast("Su tüketimi sıfırlandı", "info");
   };
 
   const handleSetWater = (ml: number) => {
@@ -70,12 +64,12 @@ export default function ActivityPage() {
 
   const handleUpdateSteps = (steps: number) => {
     updateSteps(steps, selectedDate);
-    showToast(`Adım sayısı güncellendi: ${steps.toLocaleString("tr-TR")}`);
+    showToast(`Adım sayısı güncellendi: ${steps.toLocaleString("tr-TR")}`, "success");
   };
 
   const handleUpdateStepGoal = (goal: number) => {
     updateStepGoal(goal, selectedDate);
-    showToast(`Yeni adım hedefi: ${goal.toLocaleString("tr-TR")}`);
+    showToast(`Yeni adım hedefi: ${goal.toLocaleString("tr-TR")}`, "success");
   };
 
   const handleSaveExercise = (data: {
@@ -93,12 +87,10 @@ export default function ActivityPage() {
       durationMinutes: data.durationMinutes,
       caloriesBurned: data.caloriesBurned,
     });
-    showToast(`${data.title} eklendi (+${data.caloriesBurned} kcal)`);
   };
 
-  const handleDeleteExercise = (id: string, title: string) => {
+  const handleDeleteExercise = (id: string) => {
     deleteActivity(id);
-    showToast(`${title} silindi`);
   };
 
   const getExerciseIcon = (type: ExerciseType) => {
@@ -125,14 +117,6 @@ export default function ActivityPage() {
 
       <main className="flex-1 w-full pt-4 sm:pt-6 pb-28 md:pb-12">
         <Container className="space-y-6 max-w-4xl">
-          {/* Toast Notification */}
-          {toastMessage && (
-            <div className="fixed top-20 right-4 sm:right-8 z-50 bg-app-text-dark text-white text-xs font-semibold px-4 py-2.5 rounded-2xl shadow-lg border border-white/10 animate-fade-in flex items-center gap-2">
-              <span className="w-2 h-2 rounded-full bg-primary-light animate-ping" />
-              <span>{toastMessage}</span>
-            </div>
-          )}
-
           {/* Motivational Header Greeting */}
           <section className="space-y-1">
             <div className="flex items-center justify-between">
@@ -263,9 +247,10 @@ export default function ActivityPage() {
                       </div>
                       <button
                         type="button"
-                        onClick={() => handleDeleteExercise(exercise.id, exercise.title)}
+                        onClick={() => handleDeleteExercise(exercise.id)}
                         aria-label={`${exercise.title} egzersizini sil`}
-                        className="w-8 h-8 rounded-lg flex items-center justify-center text-app-text-muted hover:text-error hover:bg-surface-container transition-colors active:scale-95"
+                        title="Egzersizi Sil"
+                        className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center text-app-text-muted hover:text-error hover:bg-rose-50 transition-colors active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error"
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>

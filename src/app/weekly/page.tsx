@@ -42,7 +42,7 @@ export default function WeeklyPage() {
               type="button"
               aria-label="Önceki Hafta"
               title="Önceki Hafta"
-              className="w-10 h-10 rounded-full flex items-center justify-center bg-surface-container hover:bg-surface-container-high active:scale-95 text-app-text-main transition-all"
+              className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center bg-surface-container hover:bg-surface-container-high active:scale-95 text-app-text-main transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
@@ -63,9 +63,10 @@ export default function WeeklyPage() {
 
             <button
               type="button"
-              aria-label="Sonraki Hafta"
+              aria-label="Sonraki Hafta (Gelecek hafta henüz başlamadı)"
+              title="Sonraki Hafta"
               disabled
-              className="w-10 h-10 rounded-full flex items-center justify-center bg-surface-container text-app-text-muted/40 cursor-not-allowed transition-all"
+              className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center bg-surface-container text-app-text-muted/40 cursor-not-allowed transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <ChevronRight className="w-5 h-5" />
             </button>
@@ -77,13 +78,15 @@ export default function WeeklyPage() {
           </section>
 
           {/* Filter Tabs */}
-          <div className="flex items-center gap-1.5 p-1 bg-surface-container-low rounded-xl overflow-x-auto">
+          <div role="tablist" aria-label="Grafik Görünüm Filtresi" className="flex items-center gap-1.5 p-1 bg-surface-container-low rounded-xl overflow-x-auto">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
+                role="tab"
+                aria-selected={activeTab === tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`min-h-[44px] px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-all ${
+                className={`min-h-[44px] px-3.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1.5 whitespace-nowrap transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                   activeTab === tab.id
                     ? "bg-white text-app-text-main shadow-xs font-bold"
                     : "text-app-text-muted hover:text-app-text-main"

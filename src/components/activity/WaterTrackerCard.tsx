@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import { Card } from "@/components/ui/Card";
-import { Droplets, Plus, CheckCircle2, RotateCcw, Edit3 } from "lucide-react";
+import { Droplets, Plus, CheckCircle2, RotateCcw, Edit3, Check } from "lucide-react";
 
 export interface WaterTrackerCardProps {
   currentWaterMl: number;
@@ -19,7 +19,8 @@ export function WaterTrackerCard({
   onResetWater,
 }: WaterTrackerCardProps) {
   const [isManualOpen, setIsManualOpen] = useState<boolean>(false);
-  const [manualInput, setManualInput] = useState<string>("");
+  const [manualInput, setManualInput] = useState<string>("250");
+  const [recentlyAdded, setRecentlyAdded] = useState<250 | 500 | null>(null);
 
   const percent = Math.min(100, Math.round((currentWaterMl / Math.max(1, waterGoalMl)) * 100));
   const remainingMl = Math.max(0, waterGoalMl - currentWaterMl);
@@ -29,12 +30,20 @@ export function WaterTrackerCard({
   if (percent >= 100) statusText = "Hedefe Ulaşıldı!";
   else if (percent >= 60) statusText = "Dengeli";
 
+  const handleQuickAdd = (amount: 250 | 500) => {
+    onAddWater(amount);
+    setRecentlyAdded(amount);
+    setTimeout(() => {
+      setRecentlyAdded((prev) => (prev === amount ? null : prev));
+    }, 900);
+  };
+
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const val = parseInt(manualInput, 10);
     if (val && val > 0) {
       onAddWater(val);
-      setManualInput("");
+      setManualInput("250");
       setIsManualOpen(false);
     }
   };
@@ -64,9 +73,10 @@ export function WaterTrackerCard({
               type="button"
               onClick={onResetWater}
               title="Suyu Sıfırla"
-              className="w-8 h-8 rounded-full flex items-center justify-center text-app-text-muted hover:text-error hover:bg-surface-container transition-colors active:scale-95"
+              aria-label="Günlük su tüketimini sıfırla"
+              className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center text-app-text-muted hover:text-error hover:bg-surface-container transition-colors active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
+              <RotateCcw className="w-4 h-4" />
             </button>
           )}
         </div>
@@ -128,19 +138,47 @@ export function WaterTrackerCard({
       <div className="grid grid-cols-2 gap-2.5 pt-1">
         <button
           type="button"
-          onClick={() => onAddWater(250)}
-          className="h-12 min-h-[44px] rounded-xl bg-water-soft text-water hover:bg-water-soft/80 font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95"
+          onClick={() => handleQuickAdd(250)}
+          aria-label="250 mililitre su ekle"
+          className={`h-12 min-h-[44px] rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-water ${
+            recentlyAdded === 250
+              ? "bg-emerald-500 text-white shadow-xs scale-[0.98]"
+              : "bg-water-soft text-water hover:bg-water-soft/80"
+          }`}
         >
-          <Plus className="w-4 h-4" />
-          <span>+250 ml Bardak</span>
+          {recentlyAdded === 250 ? (
+            <>
+              <Check className="w-4 h-4 animate-in zoom-in-50 duration-150" />
+              <span>+250 ml Eklendi!</span>
+            </>
+          ) : (
+            <>
+              <Plus className="w-4 h-4" />
+              <span>+250 ml Bardak</span>
+            </>
+          )}
         </button>
         <button
           type="button"
-          onClick={() => onAddWater(500)}
-          className="h-12 min-h-[44px] rounded-xl bg-water text-white hover:bg-water-hover font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-xs shadow-water/20"
+          onClick={() => handleQuickAdd(500)}
+          aria-label="500 mililitre su ekle"
+          className={`h-12 min-h-[44px] rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-all active:scale-95 shadow-xs shadow-water/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-water ${
+            recentlyAdded === 500
+              ? "bg-emerald-600 text-white shadow-xs scale-[0.98]"
+              : "bg-water text-white hover:bg-water-hover"
+          }`}
         >
-          <Plus className="w-4 h-4" />
-          <span>+500 ml Şişe</span>
+          {recentlyAdded === 500 ? (
+            <>
+              <Check className="w-4 h-4 animate-in zoom-in-50 duration-150" />
+              <span>+500 ml Eklendi!</span>
+            </>
+          ) : (
+            <>
+              <Plus className="w-4 h-4" />
+              <span>+500 ml Şişe</span>
+            </>
+          )}
         </button>
       </div>
 
@@ -149,7 +187,8 @@ export function WaterTrackerCard({
         <button
           type="button"
           onClick={() => setIsManualOpen(!isManualOpen)}
-          className="text-water text-xs font-medium hover:underline flex items-center gap-1 py-1"
+          aria-label={isManualOpen ? "Manuel miktar girişini kapat" : "Manuel miktar gir"}
+          className="text-water text-xs font-semibold hover:underline flex items-center gap-1 py-2 px-3 min-h-[44px] rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-water active:scale-95 transition-all"
         >
           <Edit3 className="w-3.5 h-3.5" />
           <span>{isManualOpen ? "Kapat" : "Manuel Miktar Gir"}</span>
@@ -160,10 +199,10 @@ export function WaterTrackerCard({
       {isManualOpen && (
         <form
           onSubmit={handleManualSubmit}
-          className="flex items-center gap-2 p-2.5 bg-surface-container-low rounded-xl animate-fade-in"
+          className="flex items-center gap-2 p-3 bg-surface-container-low rounded-2xl animate-fade-in"
         >
           <label htmlFor="custom-water-input" className="sr-only">
-            Manuel Su Miktarı
+            Manuel Su Miktarı (mililitre)
           </label>
           <input
             id="custom-water-input"
@@ -174,13 +213,14 @@ export function WaterTrackerCard({
             value={manualInput}
             onChange={(e) => setManualInput(e.target.value)}
             placeholder="Örn: 330"
-            className="h-10 flex-1 px-3 bg-white text-app-text-main rounded-lg text-sm font-semibold outline-none border border-surface-container focus:border-water"
+            className="h-11 min-h-[44px] flex-1 px-3.5 bg-white text-app-text-main rounded-xl text-sm font-semibold outline-none border border-surface-container focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-water tabular-nums"
             autoFocus
           />
-          <span className="text-xs text-app-text-muted font-medium">ml</span>
+          <span className="text-xs text-app-text-muted font-bold">ml</span>
           <button
             type="submit"
-            className="h-10 min-h-[44px] px-4 bg-water text-white text-xs font-bold rounded-lg hover:bg-water-hover active:scale-95 transition-all"
+            aria-label="Miktarı Ekle"
+            className="h-11 min-h-[44px] min-w-[44px] px-4 bg-water text-white text-xs font-bold rounded-xl hover:bg-water-hover active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-water"
           >
             Ekle
           </button>

@@ -86,10 +86,10 @@ export function CalorieHeroCard({
                 setIsEditingGoal(!isEditingGoal);
               }}
               title="Kalori Hedefini Düzenle"
-              aria-label="Kalori Hedefini Düzenle"
-              className="w-8 h-8 rounded-full flex items-center justify-center text-app-text-muted hover:text-primary hover:bg-surface-container transition-colors active:scale-95"
+              aria-label="Günlük Kalori Hedefini Düzenle"
+              className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center text-app-text-muted hover:text-primary hover:bg-surface-container transition-colors active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
-              <Edit2 className="w-3.5 h-3.5" />
+              <Edit2 className="w-4 h-4" />
             </button>
           )}
         </div>
@@ -100,7 +100,7 @@ export function CalorieHeroCard({
         {isEditingGoal && (
           <form
             onSubmit={handleSaveGoal}
-            className="p-3 bg-surface-container-low rounded-2xl flex items-center gap-2 border border-surface-container animate-fade-in"
+            className="p-3.5 bg-surface-container-low rounded-2xl flex flex-col sm:flex-row items-stretch sm:items-end gap-2.5 border border-surface-container animate-fade-in"
           >
             <div className="flex-1">
               <label htmlFor="hero-goal-input" className="text-[11px] font-semibold text-app-text-muted block mb-1">
@@ -114,24 +114,26 @@ export function CalorieHeroCard({
                 step="50"
                 value={goalInput}
                 onChange={(e) => setGoalInput(e.target.value)}
-                className="w-full h-10 px-3 rounded-lg bg-white border border-surface-container focus:border-primary text-app-text-main text-sm font-bold outline-none tabular-nums"
+                className="w-full h-11 px-3.5 rounded-xl bg-white border border-surface-container focus:border-primary text-app-text-main text-sm font-bold outline-none tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 autoFocus
               />
             </div>
-            <div className="flex items-center gap-1 self-end mb-0.5">
+            <div className="flex items-center gap-2 shrink-0">
               <button
                 type="submit"
-                className="h-10 px-3 rounded-lg bg-primary text-white text-xs font-bold flex items-center gap-1 shadow-xs hover:bg-primary-hover active:scale-95 transition-all"
+                aria-label="Hedefi Kaydet"
+                className="h-11 min-h-[44px] min-w-[44px] px-4 rounded-xl bg-primary text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs hover:bg-primary-hover active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
-                <Check className="w-3.5 h-3.5" />
-                Kaydet
+                <Check className="w-4 h-4" />
+                <span>Kaydet</span>
               </button>
               <button
                 type="button"
                 onClick={() => setIsEditingGoal(false)}
-                className="h-10 px-2.5 rounded-lg border border-surface-container text-app-text-muted hover:text-app-text-main text-xs font-medium transition-colors"
+                aria-label="Düzenlemeyi İptal Et"
+                className="h-11 min-h-[44px] min-w-[44px] px-3.5 rounded-xl border border-surface-container text-app-text-muted hover:text-app-text-main text-xs font-medium transition-colors active:scale-95 flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               >
-                <X className="w-3.5 h-3.5" />
+                <X className="w-4 h-4" />
               </button>
             </div>
           </form>

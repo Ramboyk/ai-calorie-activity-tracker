@@ -174,7 +174,7 @@ export function MealSection({
                       onClick={(e) => handleDelete(e, meal.id, meal.name)}
                       aria-label={`${meal.name} öğününü sil`}
                       title="Öğünü Sil"
-                      className="w-10 h-10 min-h-[40px] min-w-[40px] rounded-full flex items-center justify-center text-app-text-muted hover:text-app-error hover:bg-red-50 active:scale-95 transition-colors opacity-80 group-hover:opacity-100"
+                      className="w-11 h-11 min-h-[44px] min-w-[44px] rounded-full flex items-center justify-center text-app-text-muted hover:text-error hover:bg-rose-50 active:scale-95 transition-colors opacity-80 group-hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>

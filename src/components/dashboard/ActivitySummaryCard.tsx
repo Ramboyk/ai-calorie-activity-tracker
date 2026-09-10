@@ -33,7 +33,8 @@ export function ActivitySummaryCard({
           <button
             type="button"
             onClick={onAddActivityClick}
-            className="text-xs font-bold text-primary bg-primary-soft hover:bg-primary-soft/80 px-2.5 py-1 rounded-full flex items-center gap-1 transition-colors"
+            aria-label="Tüm aktiviteleri ve egzersizleri gör"
+            className="min-h-[44px] px-3.5 rounded-full text-xs font-bold text-primary bg-primary-soft hover:bg-primary-soft/80 flex items-center gap-1 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             Tümünü Gör
           </button>

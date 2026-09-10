@@ -42,6 +42,17 @@ export function AddExerciseModal({ isOpen, onClose, onSave }: AddExerciseModalPr
   const calculatedCalories = Math.round(durationMinutes * metRate);
   const activeCalories = customCalories !== null ? customCalories : calculatedCalories;
 
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleTypeSelect = (opt: ExerciseOption) => {
@@ -93,8 +104,8 @@ export function AddExerciseModal({ isOpen, onClose, onSave }: AddExerciseModalPr
           <button
             type="button"
             onClick={onClose}
-            aria-label="Kapat"
-            className="w-9 h-9 rounded-full flex items-center justify-center text-app-text-muted hover:text-app-text-main hover:bg-surface-container transition-colors active:scale-95"
+            aria-label="Modalı Kapat"
+            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center text-app-text-muted hover:text-app-text-main hover:bg-surface-container transition-colors active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <X className="w-5 h-5" />
           </button>
@@ -115,7 +126,7 @@ export function AddExerciseModal({ isOpen, onClose, onSave }: AddExerciseModalPr
                     key={opt.type}
                     type="button"
                     onClick={() => handleTypeSelect(opt)}
-                    className={`h-11 min-h-[44px] px-2.5 rounded-xl text-xs font-semibold flex items-center justify-center text-center transition-all ${
+                    className={`h-11 min-h-[44px] px-2.5 rounded-xl text-xs font-semibold flex items-center justify-center text-center transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                       isSelected
                         ? "bg-primary text-white shadow-xs"
                         : "bg-surface-container-low text-app-text-main hover:bg-surface-container"
@@ -139,7 +150,7 @@ export function AddExerciseModal({ isOpen, onClose, onSave }: AddExerciseModalPr
               value={customTitle}
               onChange={(e) => setCustomTitle(e.target.value)}
               placeholder="Örn: Sabah Koşusu"
-              className="w-full h-11 px-3.5 rounded-xl bg-surface-container-low border border-transparent focus:border-primary focus:bg-white text-app-text-main text-sm outline-none transition-colors"
+              className="w-full h-11 px-3.5 rounded-xl bg-surface-container-low border border-transparent focus:border-primary focus:bg-white text-app-text-main text-sm outline-none transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               required
             />
           </div>
@@ -161,7 +172,7 @@ export function AddExerciseModal({ isOpen, onClose, onSave }: AddExerciseModalPr
                     setDurationMinutes(Number(e.target.value) || 0);
                     setCustomCalories(null);
                   }}
-                  className="w-full h-11 pl-3.5 pr-9 rounded-xl bg-surface-container-low border border-transparent focus:border-primary focus:bg-white text-app-text-main text-sm font-semibold outline-none transition-colors"
+                  className="w-full h-11 pl-3.5 pr-9 rounded-xl bg-surface-container-low border border-transparent focus:border-primary focus:bg-white text-app-text-main text-sm font-semibold outline-none transition-colors tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 />
                 <Timer className="w-4 h-4 text-app-text-muted absolute right-3 top-3.5 pointer-events-none" />
               </div>
@@ -181,7 +192,7 @@ export function AddExerciseModal({ isOpen, onClose, onSave }: AddExerciseModalPr
                   onChange={(e) => {
                     setCustomCalories(Number(e.target.value) || 0);
                   }}
-                  className="w-full h-11 pl-3.5 pr-9 rounded-xl bg-surface-container-low border border-transparent focus:border-calorie focus:bg-white text-calorie text-sm font-bold outline-none transition-colors"
+                  className="w-full h-11 pl-3.5 pr-9 rounded-xl bg-surface-container-low border border-transparent focus:border-calorie focus:bg-white text-calorie text-sm font-bold outline-none transition-colors tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-calorie"
                 />
                 <Flame className="w-4 h-4 text-calorie absolute right-3 top-3.5 pointer-events-none" />
               </div>
@@ -189,14 +200,14 @@ export function AddExerciseModal({ isOpen, onClose, onSave }: AddExerciseModalPr
           </div>
 
           {/* Quick Duration Chips */}
-          <div className="flex items-center gap-1.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
             <span className="text-xs text-app-text-muted mr-1">Hızlı Seç:</span>
             {[15, 30, 45, 60].map((mins) => (
               <button
                 key={mins}
                 type="button"
                 onClick={() => handleDurationPreset(mins)}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                className={`min-h-[44px] min-w-[44px] px-3.5 py-1.5 rounded-full text-xs font-medium transition-colors flex items-center justify-center tabular-nums focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                   durationMinutes === mins
                     ? "bg-primary-soft text-primary font-bold"
                     : "bg-surface-container-low text-app-text-muted hover:bg-surface-container"
@@ -212,13 +223,13 @@ export function AddExerciseModal({ isOpen, onClose, onSave }: AddExerciseModalPr
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 h-12 min-h-[44px] rounded-xl border border-surface-container text-app-text-main text-xs font-bold hover:bg-surface-container-low transition-colors"
+              className="flex-1 h-12 min-h-[44px] rounded-xl border border-surface-container text-app-text-main text-xs font-bold hover:bg-surface-container-low transition-colors active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               Vazgeç
             </button>
             <button
               type="submit"
-              className="flex-1 h-12 min-h-[44px] rounded-xl bg-primary text-white text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-primary-hover shadow-md active:scale-98 transition-all"
+              className="flex-1 h-12 min-h-[44px] rounded-xl bg-primary text-white text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-primary-hover shadow-md active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
               <Check className="w-4 h-4" />
               Egzersizi Kaydet

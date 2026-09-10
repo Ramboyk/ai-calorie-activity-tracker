@@ -24,7 +24,9 @@ export function BottomNav({ onCaptureClick }: BottomNavProps) {
         {/* Tab 1: Bugün */}
         <Link
           href="/"
-          className={`flex flex-col items-center justify-center min-w-[3.5rem] h-12 rounded-xl transition-colors ${
+          aria-label="Bugün Paneli"
+          aria-current={pathname === "/" ? "page" : undefined}
+          className={`flex flex-col items-center justify-center min-w-[44px] w-14 h-12 rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
             pathname === "/"
               ? "text-primary font-bold"
               : "text-app-text-muted hover:text-app-text-main"
@@ -37,7 +39,9 @@ export function BottomNav({ onCaptureClick }: BottomNavProps) {
         {/* Tab 2: Aktivite */}
         <Link
           href="/activity"
-          className={`flex flex-col items-center justify-center min-w-[3.5rem] h-12 rounded-xl transition-colors ${
+          aria-label="Aktivite ve Su Takibi"
+          aria-current={pathname === "/activity" ? "page" : undefined}
+          className={`flex flex-col items-center justify-center min-w-[44px] w-14 h-12 rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
             pathname === "/activity"
               ? "text-primary font-bold"
               : "text-app-text-muted hover:text-app-text-main"
@@ -52,8 +56,9 @@ export function BottomNav({ onCaptureClick }: BottomNavProps) {
           <Link
             href="/analyze"
             onClick={onCaptureClick}
-            aria-label="Fotoğrafla Öğün Analiz Et"
-            className={`w-14 h-14 rounded-full bg-primary text-white flex items-center justify-center shadow-[0_8px_20px_rgba(0,105,72,0.38)] active:scale-95 transition-transform hover:bg-primary-hover focus:outline-none focus:ring-4 focus:ring-primary/20 ${
+            aria-label="Yemek Analiz Et"
+            aria-current={isAnalyzePage ? "page" : undefined}
+            className={`w-14 h-14 min-w-[44px] min-h-[44px] rounded-full bg-primary text-white flex items-center justify-center shadow-[0_8px_20px_rgba(0,105,72,0.38)] active:scale-95 transition-transform hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/40 ${
               isAnalyzePage ? "ring-4 ring-primary/30" : ""
             }`}
           >
@@ -65,7 +70,9 @@ export function BottomNav({ onCaptureClick }: BottomNavProps) {
         {/* Tab 3: Haftalık */}
         <Link
           href="/weekly"
-          className={`flex flex-col items-center justify-center min-w-[3.5rem] h-12 rounded-xl transition-colors ${
+          aria-label="Haftalık Özet ve İstatistikler"
+          aria-current={pathname === "/weekly" ? "page" : undefined}
+          className={`flex flex-col items-center justify-center min-w-[44px] w-14 h-12 rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
             pathname === "/weekly"
               ? "text-primary font-bold"
               : "text-app-text-muted hover:text-app-text-main"
@@ -79,7 +86,8 @@ export function BottomNav({ onCaptureClick }: BottomNavProps) {
         <button
           type="button"
           onClick={() => setActiveTab("profil")}
-          className={`flex flex-col items-center justify-center min-w-[3.5rem] h-12 rounded-xl transition-colors ${
+          aria-label="Kullanıcı Profili"
+          className={`flex flex-col items-center justify-center min-w-[44px] w-14 h-12 rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-95 ${
             activeTab === "profil" && !isAnalyzePage
               ? "text-primary font-bold"
               : "text-app-text-muted hover:text-app-text-main"

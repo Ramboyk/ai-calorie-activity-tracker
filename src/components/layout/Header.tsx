@@ -76,13 +76,13 @@ export function Header({
         </Link>
 
         {/* Date Selector Navigation (Center / Left-aligned) */}
-        <div className="flex items-center gap-1.5 bg-surface-container-low/80 p-1 rounded-full border border-surface-container/60 shadow-xs">
+        <div className="flex items-center gap-1 bg-surface-container-low/80 p-1 rounded-full border border-surface-container/60 shadow-xs">
           <button
             type="button"
             onClick={handlePrev}
             aria-label="Önceki Gün"
             title="Önceki Gün"
-            className="w-8 h-8 rounded-full flex items-center justify-center text-app-text-muted hover:text-app-text-main hover:bg-surface-container transition-colors active:scale-95"
+            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center text-app-text-muted hover:text-app-text-main hover:bg-surface-container transition-colors active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <ChevronLeft className="w-4 h-4" />
           </button>
@@ -90,11 +90,12 @@ export function Header({
           <button
             type="button"
             onClick={handleDateClick}
+            aria-label="Bugünün Tarihine Dön"
             title="Bugüne Dön"
-            className="flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-semibold text-app-text-main select-none hover:bg-surface-container rounded-full transition-colors active:scale-95"
+            className="flex items-center gap-1.5 px-3 h-11 min-h-[44px] text-xs font-semibold text-app-text-main select-none hover:bg-surface-container rounded-full transition-colors active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <Calendar className="w-3.5 h-3.5 text-primary hidden sm:block" />
-            <span className="whitespace-nowrap">{activeDateText}</span>
+            <span className="whitespace-nowrap tabular-nums">{activeDateText}</span>
           </button>
 
           <button
@@ -102,14 +103,14 @@ export function Header({
             onClick={handleNext}
             aria-label="Sonraki Gün"
             title="Sonraki Gün"
-            className="w-8 h-8 rounded-full flex items-center justify-center text-app-text-muted hover:text-app-text-main hover:bg-surface-container transition-colors active:scale-95"
+            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center text-app-text-muted hover:text-app-text-main hover:bg-surface-container transition-colors active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <ChevronRight className="w-4 h-4" />
           </button>
         </div>
 
         {/* Desktop Navigation Links */}
-        <nav className="hidden md:flex items-center gap-1">
+        <nav aria-label="Masaüstü Ana Navigasyon" className="hidden md:flex items-center gap-1">
           {navItems.map((item) => {
             const isActive =
               item.href === "/"
@@ -120,11 +121,14 @@ export function Header({
               <Link
                 key={item.id}
                 href={item.href}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                aria-current={isActive ? "page" : undefined}
+                className={cn(
+                  "px-3.5 h-10 min-h-[40px] rounded-full text-xs font-semibold inline-flex items-center justify-center transition-all",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
                   isActive
                     ? "bg-primary text-white shadow-xs"
                     : "text-app-text-muted hover:text-app-text-main hover:bg-surface-container"
-                }`}
+                )}
               >
                 {item.label}
               </Link>
@@ -183,9 +187,11 @@ export function Header({
           {/* Admin / Portfolio Showcase Access Link */}
           <Link
             href="/admin"
+            aria-label="Yönetici Paneli"
             title={isAdmin ? "Yönetici Modu Aktif (Sınırsız AI)" : "Portföy Yönetici Girişi"}
             className={cn(
-              "relative w-9 h-9 sm:w-10 sm:h-10 rounded-full border flex items-center justify-center transition-all active:scale-95",
+              "relative w-11 h-11 min-w-[44px] min-h-[44px] rounded-full border flex items-center justify-center transition-all active:scale-95",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
               isAdmin
                 ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25 shadow-xs"
                 : "bg-surface-container-high/80 border-surface-container text-app-text-muted hover:text-app-text-main hover:bg-surface-container"
@@ -200,7 +206,7 @@ export function Header({
           <button
             type="button"
             aria-label="Kullanıcı Profili"
-            className="w-10 h-10 rounded-full bg-surface-container-high/80 border border-surface-container flex items-center justify-center text-app-text-main hover:bg-surface-container transition-colors active:scale-95"
+            className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full bg-surface-container-high/80 border border-surface-container flex items-center justify-center text-app-text-main hover:bg-surface-container transition-colors active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             <User className="w-4 h-4 text-app-text-muted" />
           </button>
