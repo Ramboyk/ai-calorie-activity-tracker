@@ -30,7 +30,7 @@ export function Header({
 
   const navItems = [
     { id: "bugun", label: "Bugün", href: "/" },
-    { id: "aktivite", label: "Aktivite & Su", href: "#" },
+    { id: "aktivite", label: "Aktivite & Su", href: "/activity" },
     { id: "haftalik", label: "Haftalık Özet", href: "#" },
     { id: "analiz", label: "AI Analiz", href: "/analyze" },
   ];

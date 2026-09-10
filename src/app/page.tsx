@@ -16,55 +16,9 @@ import {
 import { useTracker } from "@/context";
 import { formatDisplayDate } from "@/lib/utils/date";
 import type { Meal } from "@/types/meal";
-import type { StepsData, WaterLog, ExerciseLog } from "@/types/activity";
+import type { StepsData, WaterLog } from "@/types/activity";
 
-// Static mock activity data for items not yet migrated to context
-const mockActivityState = {
-  steps: {
-    date: "2026-09-10",
-    count: 8420,
-    goal: 10000,
-    distanceKm: 6.2,
-    activeMinutes: 55,
-    caloriesBurned: 245,
-    syncSource: "apple_health" as const,
-  } satisfies StepsData,
-  water: {
-    date: "2026-09-10",
-    currentMl: 1750,
-    goalMl: 2500,
-    entries: [
-      { id: "w_1", time: "08:15", amountMl: 500 },
-      { id: "w_2", time: "11:30", amountMl: 500 },
-      { id: "w_3", time: "14:20", amountMl: 500 },
-      { id: "w_4", time: "16:45", amountMl: 250 },
-    ],
-  } satisfies WaterLog,
-  exercises: [
-    {
-      id: "ex_1",
-      userId: "user_demo_1",
-      date: "2026-09-10",
-      time: "07:30",
-      type: "walking",
-      title: "Tempolu Sabah Yürüyüşü",
-      durationMinutes: 30,
-      caloriesBurned: 145,
-      createdAt: "2026-09-10T08:05:00Z",
-    },
-    {
-      id: "ex_2",
-      userId: "user_demo_1",
-      date: "2026-09-10",
-      time: "17:45",
-      type: "fitness",
-      title: "Kuvvet Antrenmanı & Core",
-      durationMinutes: 25,
-      caloriesBurned: 175,
-      createdAt: "2026-09-10T18:15:00Z",
-    },
-  ] satisfies ExerciseLog[],
-};
+
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -75,13 +29,19 @@ export default function DashboardPage() {
     deleteMeal,
     calorieGoal,
     macroGoals,
+    getDailyLog,
+    addWater,
+    getActivitiesForDate,
+    getTotalBurnedCalories,
   } = useTracker();
 
-  const [waterState, setWaterState] = useState<WaterLog>(mockActivityState.water);
   const [notification, setNotification] = useState<string | null>(null);
 
   const currentMeals = getMealsForDate(selectedDate);
   const nutrition = getDailyNutrition(selectedDate);
+  const dayLog = getDailyLog(selectedDate);
+  const dayExercises = getActivitiesForDate(selectedDate);
+  const totalBurnedCalories = getTotalBurnedCalories(selectedDate);
 
   const showNotification = (msg: string) => {
     setNotification(msg);
@@ -89,10 +49,7 @@ export default function DashboardPage() {
   };
 
   const handleAddWater = (amountMl: number) => {
-    setWaterState((prev) => ({
-      ...prev,
-      currentMl: prev.currentMl + amountMl,
-    }));
+    addWater(amountMl, selectedDate);
     showNotification(`+${amountMl} ml su başarıyla kaydedildi!`);
   };
 
@@ -113,11 +70,27 @@ export default function DashboardPage() {
     showNotification("Öğün başarıyla silindi");
   };
 
-  // Fixed burned calories for demo
-  const totalBurnedCalories = mockActivityState.exercises.reduce(
-    (acc, ex) => acc + ex.caloriesBurned,
-    0
-  );
+  const handleAddActivityClick = () => {
+    router.push("/activity");
+  };
+
+  // Convert dayLog to StepsData and WaterLog for QuickMetrics
+  const stepsData: StepsData = {
+    date: selectedDate,
+    count: dayLog.steps,
+    goal: dayLog.stepGoal,
+    distanceKm: dayLog.distanceKm || Math.round(dayLog.steps * 0.00072 * 10) / 10,
+    activeMinutes: dayLog.activeMinutes || Math.round(dayLog.steps / 114),
+    caloriesBurned: Math.round(dayLog.steps * 0.04),
+    syncSource: "apple_health",
+  };
+
+  const waterData: WaterLog = {
+    date: selectedDate,
+    currentMl: dayLog.waterMl,
+    goalMl: dayLog.waterGoalMl,
+    entries: [],
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-surface text-app-text-main antialiased selection:bg-primary-light selection:text-primary">
@@ -190,15 +163,17 @@ export default function DashboardPage() {
 
               {/* Steps & Water Quick Metrics Grid */}
               <QuickMetrics
-                steps={mockActivityState.steps}
-                water={waterState}
+                steps={stepsData}
+                water={waterData}
                 onAddWater={handleAddWater}
+                onStepClick={handleAddActivityClick}
               />
 
               {/* Activity & Exercises Summary Card */}
               <ActivitySummaryCard
-                exercises={mockActivityState.exercises}
+                exercises={dayExercises}
                 totalBurnedCalories={totalBurnedCalories}
+                onAddActivityClick={handleAddActivityClick}
               />
             </div>
           </div>

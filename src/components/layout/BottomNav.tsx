@@ -24,9 +24,8 @@ export function BottomNav({ onCaptureClick }: BottomNavProps) {
         {/* Tab 1: Bugün */}
         <Link
           href="/"
-          onClick={() => setActiveTab("bugun")}
           className={`flex flex-col items-center justify-center min-w-[3.5rem] h-12 rounded-xl transition-colors ${
-            pathname === "/" && activeTab === "bugun"
+            pathname === "/"
               ? "text-primary font-bold"
               : "text-app-text-muted hover:text-app-text-main"
           }`}
@@ -36,18 +35,17 @@ export function BottomNav({ onCaptureClick }: BottomNavProps) {
         </Link>
 
         {/* Tab 2: Aktivite */}
-        <button
-          type="button"
-          onClick={() => setActiveTab("aktivite")}
+        <Link
+          href="/activity"
           className={`flex flex-col items-center justify-center min-w-[3.5rem] h-12 rounded-xl transition-colors ${
-            activeTab === "aktivite" && !isAnalyzePage
+            pathname === "/activity"
               ? "text-primary font-bold"
               : "text-app-text-muted hover:text-app-text-main"
           }`}
         >
           <Flame className="w-5 h-5" />
           <span className="text-[10px] mt-1">Aktivite</span>
-        </button>
+        </Link>
 
         {/* Center: Elevated Camera FAB Button */}
         <div className="relative flex flex-col items-center justify-center -top-4">

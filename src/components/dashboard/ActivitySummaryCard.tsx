@@ -6,11 +6,13 @@ import { Flame, TrendingUp, Dumbbell, Timer } from "lucide-react";
 export interface ActivitySummaryCardProps {
   exercises: ExerciseLog[];
   totalBurnedCalories: number;
+  onAddActivityClick?: () => void;
 }
 
 export function ActivitySummaryCard({
   exercises,
   totalBurnedCalories,
+  onAddActivityClick,
 }: ActivitySummaryCardProps) {
   const totalMinutes = exercises.reduce((acc, curr) => acc + curr.durationMinutes, 0);
 
@@ -27,10 +29,20 @@ export function ActivitySummaryCard({
           </div>
         </div>
 
-        <div className="flex items-center gap-1 text-xs font-bold text-primary bg-primary-soft px-2 py-0.5 rounded-full tabular-nums">
-          <TrendingUp className="w-3.5 h-3.5" />
-          +12%
-        </div>
+        {onAddActivityClick ? (
+          <button
+            type="button"
+            onClick={onAddActivityClick}
+            className="text-xs font-bold text-primary bg-primary-soft hover:bg-primary-soft/80 px-2.5 py-1 rounded-full flex items-center gap-1 transition-colors"
+          >
+            Tümünü Gör
+          </button>
+        ) : (
+          <div className="flex items-center gap-1 text-xs font-bold text-primary bg-primary-soft px-2 py-0.5 rounded-full tabular-nums">
+            <TrendingUp className="w-3.5 h-3.5" />
+            +12%
+          </div>
+        )}
       </CardHeader>
 
       <CardContent className="space-y-3">

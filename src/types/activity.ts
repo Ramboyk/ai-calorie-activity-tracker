@@ -42,3 +42,14 @@ export interface WaterLog {
   goalMl: number;
   entries: WaterEntry[];
 }
+
+export interface DailyLog {
+  date: string; // YYYY-MM-DD
+  steps: number;
+  stepGoal: number;
+  waterMl: number;
+  waterGoalMl: number;
+  distanceKm?: number;
+  activeMinutes?: number;
+}
+

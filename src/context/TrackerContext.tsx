@@ -2,6 +2,7 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from "react";
 import type { Meal } from "@/types/meal";
+import type { DailyLog, ExerciseLog } from "@/types/activity";
 import { getTodayDateString, addDays } from "@/lib/utils/date";
 
 export interface MacroGoals {
@@ -18,6 +19,7 @@ export interface DailyNutritionSummary {
   calorieGoal: number;
   remainingCalories: number;
   netCalories: number;
+  burnedCalories: number;
 }
 
 export interface TrackerContextType {
@@ -26,17 +28,36 @@ export interface TrackerContextType {
   calorieGoal: number;
   macroGoals: MacroGoals;
   meals: Meal[];
+  activities: ExerciseLog[];
+  dailyLogs: Record<string, DailyLog>;
+  // Meal Actions
   addMeal: (mealData: Omit<Meal, "id" | "createdAt"> | Meal) => Meal;
   deleteMeal: (mealId: string) => void;
+  // Date Navigators
   setSelectedDate: (dateStr: string) => void;
   goToPrevDay: () => void;
   goToNextDay: () => void;
   goToToday: () => void;
+  // Selectors
   getMealsForDate: (dateStr: string) => Meal[];
   getDailyNutrition: (dateStr: string) => DailyNutritionSummary;
+  // Water & Steps Actions
+  addWater: (amountMl: number, dateStr?: string) => void;
+  resetWater: (dateStr?: string) => void;
+  setWater: (ml: number, dateStr?: string) => void;
+  updateSteps: (steps: number, dateStr?: string) => void;
+  updateStepGoal: (goal: number, dateStr?: string) => void;
+  getDailyLog: (dateStr: string) => DailyLog;
+  // Activity Actions
+  addActivity: (activityData: Omit<ExerciseLog, "id" | "createdAt">) => ExerciseLog;
+  deleteActivity: (activityId: string) => void;
+  getActivitiesForDate: (dateStr: string) => ExerciseLog[];
+  getTotalBurnedCalories: (dateStr: string) => number;
 }
 
 const LOCAL_STORAGE_MEALS_KEY = "nutritrack_meals_v1";
+const LOCAL_STORAGE_ACTIVITIES_KEY = "nutritrack_activities_v1";
+const LOCAL_STORAGE_DAILY_LOGS_KEY = "nutritrack_daily_logs_v1";
 
 const DEFAULT_CALORIE_GOAL = 2000;
 const DEFAULT_MACRO_GOALS: MacroGoals = {
@@ -44,6 +65,9 @@ const DEFAULT_MACRO_GOALS: MacroGoals = {
   carbs: 220,
   fat: 65,
 };
+
+const DEFAULT_STEP_GOAL = 10000;
+const DEFAULT_WATER_GOAL = 2500;
 
 // Stitch realistic sample meals for initial seeding
 const getInitialSeedMeals = (todayStr: string): Meal[] => [
@@ -183,68 +207,177 @@ const getInitialSeedMeals = (todayStr: string): Meal[] => [
       },
       {
         id: "seed_item_3_2",
-        name: "Taze Yaban Mersini & Ahududu",
+        name: "Böğürtlen & Yaban Mersini",
         portion: 80,
         portionUnit: "g",
-        calories: 70,
-        protein: 2,
-        carbs: 16,
+        calories: 45,
+        protein: 0.5,
+        carbs: 11,
         fat: 0,
+      },
+      {
+        id: "seed_item_3_3",
+        name: "Çiğ Badem İçi",
+        portion: 10,
+        portionUnit: "g",
+        calories: 60,
+        protein: 2,
+        carbs: 2,
+        fat: 5,
       },
     ],
   },
 ];
+
+// Seed activities matching Stitch UI
+const getInitialSeedActivities = (todayStr: string): ExerciseLog[] => [
+  {
+    id: "seed_act_1",
+    userId: "user_demo_1",
+    date: todayStr,
+    time: "09:15",
+    type: "walking",
+    title: "Yürüyüş",
+    durationMinutes: 30,
+    caloriesBurned: 130,
+    createdAt: `${todayStr}T09:45:00Z`,
+  },
+  {
+    id: "seed_act_2",
+    userId: "user_demo_1",
+    date: todayStr,
+    time: "18:00",
+    type: "fitness",
+    title: "Fitness & Kuvvet",
+    durationMinutes: 20,
+    caloriesBurned: 190,
+    createdAt: `${todayStr}T18:25:00Z`,
+  },
+];
+
+// Seed daily log (steps & water) matching Stitch UI
+const getInitialSeedDailyLogs = (todayStr: string): Record<string, DailyLog> => ({
+  [todayStr]: {
+    date: todayStr,
+    steps: 8420,
+    stepGoal: 10000,
+    waterMl: 1750,
+    waterGoalMl: 2500,
+    distanceKm: 6.1,
+    activeMinutes: 74,
+  },
+});
 
 const TrackerContext = createContext<TrackerContextType | null>(null);
 
 export function TrackerProvider({ children }: { children: React.ReactNode }) {
   const [selectedDate, setSelectedDate] = useState<string>(getTodayDateString());
   const [meals, setMeals] = useState<Meal[]>([]);
+  const [activities, setActivities] = useState<ExerciseLog[]>([]);
+  const [dailyLogs, setDailyLogs] = useState<Record<string, DailyLog>>({});
   const [isHydrated, setIsHydrated] = useState<boolean>(false);
 
   // Read LocalStorage on Client Mount (SSR-Safe)
   useEffect(() => {
     queueMicrotask(() => {
-      try {
-        const todayStr = getTodayDateString();
-        const stored = localStorage.getItem(LOCAL_STORAGE_MEALS_KEY);
+      const todayStr = getTodayDateString();
 
-        if (stored) {
-          const parsed = JSON.parse(stored) as Meal[];
+      // Hydrate Meals
+      try {
+        const storedMeals = localStorage.getItem(LOCAL_STORAGE_MEALS_KEY);
+        if (storedMeals) {
+          const parsed = JSON.parse(storedMeals) as Meal[];
           if (Array.isArray(parsed) && parsed.length > 0) {
             setMeals(parsed);
           } else {
-            // Seed with Stitch defaults if empty array
             const initialSeed = getInitialSeedMeals(todayStr);
             setMeals(initialSeed);
             localStorage.setItem(LOCAL_STORAGE_MEALS_KEY, JSON.stringify(initialSeed));
           }
         } else {
-          // Seed on first load
           const initialSeed = getInitialSeedMeals(todayStr);
           setMeals(initialSeed);
           localStorage.setItem(LOCAL_STORAGE_MEALS_KEY, JSON.stringify(initialSeed));
         }
       } catch (err) {
-        console.error("[NutriTrack AI] localStorage okuma hatası:", err);
-        const initialSeed = getInitialSeedMeals(getTodayDateString());
-        setMeals(initialSeed);
+        console.error("[NutriTrack AI] meals localStorage okuma hatası:", err);
+        setMeals(getInitialSeedMeals(todayStr));
+      }
+
+      // Hydrate Activities
+      try {
+        const storedActs = localStorage.getItem(LOCAL_STORAGE_ACTIVITIES_KEY);
+        if (storedActs) {
+          const parsed = JSON.parse(storedActs) as ExerciseLog[];
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            setActivities(parsed);
+          } else {
+            const initialActs = getInitialSeedActivities(todayStr);
+            setActivities(initialActs);
+            localStorage.setItem(LOCAL_STORAGE_ACTIVITIES_KEY, JSON.stringify(initialActs));
+          }
+        } else {
+          const initialActs = getInitialSeedActivities(todayStr);
+          setActivities(initialActs);
+          localStorage.setItem(LOCAL_STORAGE_ACTIVITIES_KEY, JSON.stringify(initialActs));
+        }
+      } catch (err) {
+        console.error("[NutriTrack AI] activities localStorage okuma hatası:", err);
+        setActivities(getInitialSeedActivities(todayStr));
+      }
+
+      // Hydrate Daily Logs (Steps & Water)
+      try {
+        const storedLogs = localStorage.getItem(LOCAL_STORAGE_DAILY_LOGS_KEY);
+        if (storedLogs) {
+          const parsed = JSON.parse(storedLogs) as Record<string, DailyLog>;
+          if (parsed && typeof parsed === "object") {
+            setDailyLogs(parsed);
+          } else {
+            const initialLogs = getInitialSeedDailyLogs(todayStr);
+            setDailyLogs(initialLogs);
+            localStorage.setItem(LOCAL_STORAGE_DAILY_LOGS_KEY, JSON.stringify(initialLogs));
+          }
+        } else {
+          const initialLogs = getInitialSeedDailyLogs(todayStr);
+          setDailyLogs(initialLogs);
+          localStorage.setItem(LOCAL_STORAGE_DAILY_LOGS_KEY, JSON.stringify(initialLogs));
+        }
+      } catch (err) {
+        console.error("[NutriTrack AI] dailyLogs localStorage okuma hatası:", err);
+        setDailyLogs(getInitialSeedDailyLogs(todayStr));
       } finally {
         setIsHydrated(true);
       }
     });
   }, []);
 
-  // Sync to LocalStorage whenever meals change (after hydration)
+  // Sync to LocalStorage helpers
   const persistMeals = useCallback((newMeals: Meal[]) => {
     try {
       localStorage.setItem(LOCAL_STORAGE_MEALS_KEY, JSON.stringify(newMeals));
     } catch (err) {
-      console.error("[NutriTrack AI] localStorage yazma hatası:", err);
+      console.error("[NutriTrack AI] localStorage yazma hatası (meals):", err);
     }
   }, []);
 
-  // Actions
+  const persistActivities = useCallback((newActs: ExerciseLog[]) => {
+    try {
+      localStorage.setItem(LOCAL_STORAGE_ACTIVITIES_KEY, JSON.stringify(newActs));
+    } catch (err) {
+      console.error("[NutriTrack AI] localStorage yazma hatası (activities):", err);
+    }
+  }, []);
+
+  const persistDailyLogs = useCallback((newLogs: Record<string, DailyLog>) => {
+    try {
+      localStorage.setItem(LOCAL_STORAGE_DAILY_LOGS_KEY, JSON.stringify(newLogs));
+    } catch (err) {
+      console.error("[NutriTrack AI] localStorage yazma hatası (dailyLogs):", err);
+    }
+  }, []);
+
+  // Meal Actions
   const addMeal = useCallback(
     (mealData: Omit<Meal, "id" | "createdAt"> | Meal): Meal => {
       const newMeal: Meal = {
@@ -289,6 +422,220 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
     setSelectedDate(getTodayDateString());
   }, []);
 
+  // DailyLog selector
+  const getDailyLog = useCallback(
+    (dateStr: string): DailyLog => {
+      if (dailyLogs[dateStr]) {
+        return dailyLogs[dateStr];
+      }
+      return {
+        date: dateStr,
+        steps: 0,
+        stepGoal: DEFAULT_STEP_GOAL,
+        waterMl: 0,
+        waterGoalMl: DEFAULT_WATER_GOAL,
+        distanceKm: 0,
+        activeMinutes: 0,
+      };
+    },
+    [dailyLogs]
+  );
+
+  // Water Actions
+  const addWater = useCallback(
+    (amountMl: number, targetDate?: string) => {
+      const dateKey = targetDate || selectedDate;
+      const validAmount = Math.max(0, amountMl);
+      setDailyLogs((prev) => {
+        const current = prev[dateKey] || {
+          date: dateKey,
+          steps: 0,
+          stepGoal: DEFAULT_STEP_GOAL,
+          waterMl: 0,
+          waterGoalMl: DEFAULT_WATER_GOAL,
+          distanceKm: 0,
+          activeMinutes: 0,
+        };
+        const updatedLog: DailyLog = {
+          ...current,
+          waterMl: Math.min(10000, current.waterMl + validAmount),
+        };
+        const updated = { ...prev, [dateKey]: updatedLog };
+        persistDailyLogs(updated);
+        return updated;
+      });
+    },
+    [selectedDate, persistDailyLogs]
+  );
+
+  const resetWater = useCallback(
+    (targetDate?: string) => {
+      const dateKey = targetDate || selectedDate;
+      setDailyLogs((prev) => {
+        const current = prev[dateKey] || {
+          date: dateKey,
+          steps: 0,
+          stepGoal: DEFAULT_STEP_GOAL,
+          waterMl: 0,
+          waterGoalMl: DEFAULT_WATER_GOAL,
+          distanceKm: 0,
+          activeMinutes: 0,
+        };
+        const updatedLog: DailyLog = {
+          ...current,
+          waterMl: 0,
+        };
+        const updated = { ...prev, [dateKey]: updatedLog };
+        persistDailyLogs(updated);
+        return updated;
+      });
+    },
+    [selectedDate, persistDailyLogs]
+  );
+
+  const setWater = useCallback(
+    (ml: number, targetDate?: string) => {
+      const dateKey = targetDate || selectedDate;
+      const validMl = Math.max(0, ml);
+      setDailyLogs((prev) => {
+        const current = prev[dateKey] || {
+          date: dateKey,
+          steps: 0,
+          stepGoal: DEFAULT_STEP_GOAL,
+          waterMl: 0,
+          waterGoalMl: DEFAULT_WATER_GOAL,
+          distanceKm: 0,
+          activeMinutes: 0,
+        };
+        const updatedLog: DailyLog = {
+          ...current,
+          waterMl: validMl,
+        };
+        const updated = { ...prev, [dateKey]: updatedLog };
+        persistDailyLogs(updated);
+        return updated;
+      });
+    },
+    [selectedDate, persistDailyLogs]
+  );
+
+  // Steps Actions
+  const updateSteps = useCallback(
+    (steps: number, targetDate?: string) => {
+      const dateKey = targetDate || selectedDate;
+      const validSteps = Math.max(0, steps);
+      // Rough distance: ~0.72m per step -> 1388 steps per km
+      const distanceKm = Math.round((validSteps * 0.00072) * 10) / 10;
+      // Rough active minutes: ~110 steps/min
+      const activeMinutes = Math.round(validSteps / 114);
+
+      setDailyLogs((prev) => {
+        const current = prev[dateKey] || {
+          date: dateKey,
+          steps: 0,
+          stepGoal: DEFAULT_STEP_GOAL,
+          waterMl: 0,
+          waterGoalMl: DEFAULT_WATER_GOAL,
+          distanceKm: 0,
+          activeMinutes: 0,
+        };
+        const updatedLog: DailyLog = {
+          ...current,
+          steps: validSteps,
+          distanceKm,
+          activeMinutes,
+        };
+        const updated = { ...prev, [dateKey]: updatedLog };
+        persistDailyLogs(updated);
+        return updated;
+      });
+    },
+    [selectedDate, persistDailyLogs]
+  );
+
+  const updateStepGoal = useCallback(
+    (goal: number, targetDate?: string) => {
+      const dateKey = targetDate || selectedDate;
+      const validGoal = Math.max(500, goal);
+      setDailyLogs((prev) => {
+        const current = prev[dateKey] || {
+          date: dateKey,
+          steps: 0,
+          stepGoal: DEFAULT_STEP_GOAL,
+          waterMl: 0,
+          waterGoalMl: DEFAULT_WATER_GOAL,
+          distanceKm: 0,
+          activeMinutes: 0,
+        };
+        const updatedLog: DailyLog = {
+          ...current,
+          stepGoal: validGoal,
+        };
+        const updated = { ...prev, [dateKey]: updatedLog };
+        persistDailyLogs(updated);
+        return updated;
+      });
+    },
+    [selectedDate, persistDailyLogs]
+  );
+
+  // Activity Actions
+  const addActivity = useCallback(
+    (activityData: Omit<ExerciseLog, "id" | "createdAt">): ExerciseLog => {
+      const now = new Date();
+      const timeStr =
+        activityData.time ||
+        String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
+
+      const newAct: ExerciseLog = {
+        ...activityData,
+        id: `act_${Date.now()}_${Math.random().toString(36).substr(2, 4)}`,
+        date: activityData.date || selectedDate,
+        time: timeStr,
+        createdAt: new Date().toISOString(),
+      };
+
+      setActivities((prev) => {
+        const updated = [newAct, ...prev];
+        persistActivities(updated);
+        return updated;
+      });
+
+      return newAct;
+    },
+    [selectedDate, persistActivities]
+  );
+
+  const deleteActivity = useCallback(
+    (activityId: string) => {
+      setActivities((prev) => {
+        const updated = prev.filter((a) => a.id !== activityId);
+        persistActivities(updated);
+        return updated;
+      });
+    },
+    [persistActivities]
+  );
+
+  const getActivitiesForDate = useCallback(
+    (dateStr: string): ExerciseLog[] => {
+      return activities.filter((act) => act.date === dateStr);
+    },
+    [activities]
+  );
+
+  const getTotalBurnedCalories = useCallback(
+    (dateStr: string): number => {
+      const dayActs = activities.filter((act) => act.date === dateStr);
+      const exerciseBurned = dayActs.reduce((acc, act) => acc + (act.caloriesBurned || 0), 0);
+      const dayLog = dailyLogs[dateStr];
+      // Step burn estimate: ~0.04 kcal per step
+      const stepBurned = dayLog ? Math.round(dayLog.steps * 0.04) : 0;
+      return exerciseBurned + stepBurned;
+    },
+    [activities, dailyLogs]
+  );
+
   // Selectors
   const getMealsForDate = useCallback(
     (dateStr: string): Meal[] => {
@@ -306,8 +653,9 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
       const totalCarbs = Math.round(dayMeals.reduce((acc, m) => acc + (m.totalCarbs || 0), 0) * 10) / 10;
       const totalFat = Math.round(dayMeals.reduce((acc, m) => acc + (m.totalFat || 0), 0) * 10) / 10;
 
-      const remainingCalories = Math.max(0, DEFAULT_CALORIE_GOAL - consumedCalories);
-      const netCalories = consumedCalories; // In Phase 6, burned will be expanded in Phase 7
+      const burnedCalories = getTotalBurnedCalories(dateStr);
+      const remainingCalories = Math.max(0, DEFAULT_CALORIE_GOAL - (consumedCalories - burnedCalories));
+      const netCalories = consumedCalories - burnedCalories;
 
       return {
         consumedCalories,
@@ -317,9 +665,10 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
         calorieGoal: DEFAULT_CALORIE_GOAL,
         remainingCalories,
         netCalories,
+        burnedCalories,
       };
     },
-    [meals]
+    [meals, getTotalBurnedCalories]
   );
 
   const value = useMemo<TrackerContextType>(
@@ -329,6 +678,8 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
       calorieGoal: DEFAULT_CALORIE_GOAL,
       macroGoals: DEFAULT_MACRO_GOALS,
       meals,
+      activities,
+      dailyLogs,
       addMeal,
       deleteMeal,
       setSelectedDate,
@@ -337,11 +688,23 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
       goToToday,
       getMealsForDate,
       getDailyNutrition,
+      addWater,
+      resetWater,
+      setWater,
+      updateSteps,
+      updateStepGoal,
+      getDailyLog,
+      addActivity,
+      deleteActivity,
+      getActivitiesForDate,
+      getTotalBurnedCalories,
     }),
     [
       selectedDate,
       isHydrated,
       meals,
+      activities,
+      dailyLogs,
       addMeal,
       deleteMeal,
       goToPrevDay,
@@ -349,6 +712,16 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
       goToToday,
       getMealsForDate,
       getDailyNutrition,
+      addWater,
+      resetWater,
+      setWater,
+      updateSteps,
+      updateStepGoal,
+      getDailyLog,
+      addActivity,
+      deleteActivity,
+      getActivitiesForDate,
+      getTotalBurnedCalories,
     ]
   );
 

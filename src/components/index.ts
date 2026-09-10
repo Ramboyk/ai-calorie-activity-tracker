@@ -31,3 +31,8 @@ export { AnalysisLoadingState, type AnalysisLoadingStateProps } from "./meal/Ana
 export { MealItemRow, type MealItemRowProps } from "./meal/MealItemRow";
 export { NutritionSummaryCard, type NutritionSummaryCardProps } from "./meal/NutritionSummaryCard";
 export { AddFoodItemModal, type AddFoodItemModalProps } from "./meal/AddFoodItemModal";
+
+// Activity & Fitness Components
+export { AddExerciseModal, type AddExerciseModalProps } from "./activity/AddExerciseModal";
+export { StepTrackerCard, type StepTrackerCardProps } from "./activity/StepTrackerCard";
+export { WaterTrackerCard, type WaterTrackerCardProps } from "./activity/WaterTrackerCard";
