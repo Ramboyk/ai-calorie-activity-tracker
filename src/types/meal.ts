@@ -55,3 +55,22 @@ export interface GeminiMealAnalysisResult {
   confidence: "low" | "medium" | "high";
   notes: string[];
 }
+
+export interface Base100gNutrients {
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+export interface EditableFoodItem {
+  id: string;
+  name: string;
+  estimatedPortion: string;
+  weightGrams: number;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  base100g: Base100gNutrients;
+}
