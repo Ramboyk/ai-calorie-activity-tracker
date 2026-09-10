@@ -339,12 +339,12 @@ export default function AnalyzeMealPage() {
                 <span>Gemini 2.5 Flash Vision</span>
               </div>
 
-              {/* Quota Badge (Phase 11) */}
+              {/* Quota Badge / Admin Showcase Badge */}
               <div
                 className={cn(
-                  "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all select-none",
+                  "inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full border text-xs font-bold transition-all select-none",
                   isAdminUser
-                    ? "bg-purple-500/10 border-purple-500/30 text-purple-600 dark:text-purple-400"
+                    ? "bg-gradient-to-r from-amber-500/15 via-emerald-500/15 to-primary-soft border-emerald-500/40 text-emerald-700 dark:text-emerald-300 shadow-xs"
                     : remainingQuota === 0
                     ? "bg-rose-500/10 border-rose-500/30 text-rose-600 dark:text-rose-400"
                     : (remainingQuota ?? dailyLimit) <= 1
@@ -353,7 +353,7 @@ export default function AnalyzeMealPage() {
                 )}
                 title={
                   isAdminUser
-                    ? "Admin Bypass Aktif (Sınırsız AI Kotası)"
+                    ? "Portföy Yönetici Modu: Rate Limit Bypass Devrede"
                     : `Günlük Kalan AI Analiz: ${remainingQuota ?? dailyLimit} / ${dailyLimit}`
                 }
               >
@@ -361,7 +361,7 @@ export default function AnalyzeMealPage() {
                   className={cn(
                     "w-2 h-2 rounded-full",
                     isAdminUser
-                      ? "bg-purple-500 animate-pulse"
+                      ? "bg-emerald-500 animate-pulse shadow-xs shadow-emerald-500/50"
                       : remainingQuota === 0
                       ? "bg-rose-500"
                       : (remainingQuota ?? dailyLimit) <= 1
@@ -371,7 +371,7 @@ export default function AnalyzeMealPage() {
                 />
                 <span>
                   {isAdminUser
-                    ? "Admin (Sınırsız AI)"
+                    ? "⚡ Portföy Admin Modu: Sınırsız Analiz Aktif"
                     : `Günlük Kalan AI Analiz: ${remainingQuota !== null ? remainingQuota : dailyLimit} / ${dailyLimit}`}
                 </span>
               </div>

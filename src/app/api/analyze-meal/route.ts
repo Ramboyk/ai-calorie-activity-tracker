@@ -17,6 +17,8 @@ import {
 import type { GeminiMealAnalysisResult } from "@/types/meal";
 import type { ApiResponse } from "@/types/api";
 
+import { ADMIN_SESSION_COOKIE_NAME, verifyAdminSession } from "@/lib/auth/session";
+
 const MAX_FILE_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
 const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
 
@@ -36,20 +38,25 @@ function getClientIp(request: NextRequest): string {
 }
 
 /**
- * Checks if the request carries valid admin authorization (Phase 12 preparation).
+ * Checks if the request carries a valid HMAC-signed admin session.
  */
 function checkIsAdmin(request: NextRequest): boolean {
-  const adminCookie = request.cookies.get("admin_session")?.value;
+  const sessionCookie = request.cookies.get(ADMIN_SESSION_COOKIE_NAME)?.value;
+  if (verifyAdminSession(sessionCookie)) {
+    return true;
+  }
+
+  // Also support direct secret token header for integration testing
   const adminHeader = request.headers.get("x-admin-token");
   const expectedSecret = process.env.ADMIN_SESSION_SECRET;
-
   if (
     expectedSecret &&
     expectedSecret !== "generate_a_random_32_byte_secret_here" &&
-    (adminCookie === expectedSecret || adminHeader === expectedSecret)
+    adminHeader === expectedSecret
   ) {
     return true;
   }
+
   return false;
 }
 

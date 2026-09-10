@@ -7,7 +7,7 @@ import { Container } from "./Container";
 import { useTracker } from "@/context";
 import { formatDisplayDate } from "@/lib/utils/date";
 import { cn } from "@/lib/utils/cn";
-import { Sparkles, ChevronLeft, ChevronRight, Calendar, User, Cloud, RefreshCw, AlertCircle } from "lucide-react";
+import { Sparkles, ChevronLeft, ChevronRight, Calendar, User, Cloud, RefreshCw, AlertCircle, Shield } from "lucide-react";
 
 export interface HeaderProps {
   currentDateText?: string;
@@ -22,6 +22,27 @@ export function Header({
 }: HeaderProps) {
   const pathname = usePathname();
   const tracker = useTracker();
+  const [isAdmin, setIsAdmin] = React.useState<boolean>(false);
+
+  React.useEffect(() => {
+    let isMounted = true;
+    async function checkAdmin() {
+      try {
+        const res = await fetch("/api/admin/status");
+        if (!res.ok) return;
+        const resJson = await res.json();
+        if (isMounted && resJson.success && resJson.data) {
+          setIsAdmin(Boolean(resJson.data.isAdmin));
+        }
+      } catch {
+        // ignore error
+      }
+    }
+    checkAdmin();
+    return () => {
+      isMounted = false;
+    };
+  }, [pathname]);
 
   const activeDateText = currentDateText || formatDisplayDate(tracker.selectedDate);
 
@@ -158,6 +179,23 @@ export function Header({
               </>
             )}
           </div>
+
+          {/* Admin / Portfolio Showcase Access Link */}
+          <Link
+            href="/admin"
+            title={isAdmin ? "Yönetici Modu Aktif (Sınırsız AI)" : "Portföy Yönetici Girişi"}
+            className={cn(
+              "relative w-9 h-9 sm:w-10 sm:h-10 rounded-full border flex items-center justify-center transition-all active:scale-95",
+              isAdmin
+                ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/25 shadow-xs"
+                : "bg-surface-container-high/80 border-surface-container text-app-text-muted hover:text-app-text-main hover:bg-surface-container"
+            )}
+          >
+            <Shield className="w-4 h-4" />
+            {isAdmin && (
+              <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-emerald-500 ring-2 ring-surface animate-pulse" />
+            )}
+          </Link>
 
           <button
             type="button"
