@@ -1,36 +1,70 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NutriTrack AI — AI Calorie & Activity Tracker
 
-## Getting Started
+NutriTrack AI, yapay zeka destekli besin tanıma, kalori sayımı ve kapsamlı aktivite/hidrasyon takibi sunan yeni nesil bir sağlık ve beslenme takip uygulamasıdır.
 
-First, run the development server:
+## 🚀 Temel Özellikler
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Yapay Zeka Destekli Görsel Besin Analizi**: Yemek fotoğrafı üzerinden otomatik porsiyon, kalori ve makro besin ayrıştırması (Google Gemini AI Vision).
+- **Hassas Enerji & Makro Dengesi**: Dairesel göstergeler ve oran barları ile anlık kalori açığı ve protein/karb/yağ takibi.
+- **Entegre Aktivite ve Hidrasyon**: Günlük adım sayısı, yakılan egzersiz kalorisi ve interaktif su tüketim takibi.
+- **Haftalık Özet ve Trendler**: 7 günlük kalori, adım ve su dağılımını gösteren görselleştirilmiş grafikler.
+- **Modern ve Duyarlı Tasarım**: Stitch UI tasarım sistemini temel alan, mobil öncelikli zarif arayüz.
+
+## 🛠️ Teknoloji Yığını
+
+- **Framework**: [Next.js 15+](https://nextjs.org/) (App Router, React 19)
+- **Dil**: [TypeScript](https://www.typescriptlang.org/) (Strict Mode)
+- **Stil**: [Tailwind CSS](https://tailwindcss.com/)
+- **Yapay Zeka**: Google Gemini 2.5 Flash / Vision API
+- **Kimlik Doğrulama & Depolama**: Firebase Authentication & Firestore
+- **Hız Sınırlama (Rate Limiting)**: Upstash Redis
+
+## 📁 Proje Dizin Mimarisi
+
+```text
+├── public/                 # Statik varlıklar ve görseller
+├── src/
+│   ├── app/                # Next.js App Router sayfaları ve API rotaları
+│   │   ├── layout.tsx      # Kök layout ve tema sarmalayıcı
+│   │   └── page.tsx        # Başlangıç / Dashboard sayfası
+│   ├── components/         # Yeniden kullanılabilir UI bileşenleri
+│   ├── context/            # React Context durum yönetim sağlayıcıları
+│   ├── lib/                # API istemcileri, veritabanı ve yardımcı fonksiyonlar
+│   └── types/              # Katı TypeScript veri modelleri
+│       ├── meal.ts         # Öğün, besin ve AI güven modelleri
+│       ├── activity.ts     # Egzersiz, adım ve su tüketim modelleri
+│       ├── daily.ts        # Günlük özet ve haftalık trend modelleri
+│       └── api.ts          # API yanıt ve AI istek şemaları
+├── stitch_nutritrack_ai_app_ui/  # Stitch referans UI kaynakları (Değiştirilmez)
+├── .env.example            # Örnek ortam değişkenleri şablonu
+├── tailwind.config.ts      # Tailwind CSS yapılandırması
+└── tsconfig.json           # TypeScript derleyici kuralları
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## ⚙️ Kurulum ve Çalıştırma
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+1. **Bağımlılıkları Yükleyin:**
+   ```bash
+   npm install
+   ```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+2. **Ortam Değişkenlerini Tanımlayın:**
+   `.env.example` dosyasını `.env.local` olarak kopyalayın ve ilgili API anahtarlarını girin:
+   ```bash
+   cp .env.example .env.local
+   ```
 
-## Learn More
+3. **Geliştirme Sunucusunu Başlatın:**
+   ```bash
+   npm run dev
+   ```
+   Tarayıcınızda [http://localhost:3000](http://localhost:3000) adresini açın.
 
-To learn more about Next.js, take a look at the following resources:
+4. **Derleme ve Tip Doğrulama:**
+   ```bash
+   npm run build
+   npm run lint
+   ```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## 📄 Lisans
+Bu proje özel mülkiyet ve geliştirme lisansına tabidir.
