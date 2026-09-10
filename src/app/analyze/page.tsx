@@ -17,7 +17,7 @@ import {
   Badge,
   Button,
 } from "@/components";
-import type { MealType } from "@/types/meal";
+import type { MealType, GeminiMealAnalysisResult } from "@/types/meal";
 import {
   ArrowLeft,
   Sparkles,
@@ -26,6 +26,9 @@ import {
   Plus,
   Info,
   Layers,
+  AlertCircle,
+  RefreshCw,
+  Edit3,
 } from "lucide-react";
 
 export default function AnalyzeMealPage() {
@@ -45,6 +48,8 @@ export default function AnalyzeMealPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState<boolean>(false);
   const [analysisCompleted, setAnalysisCompleted] = useState<boolean>(false);
+  const [analysisResult, setAnalysisResult] = useState<GeminiMealAnalysisResult | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
 
   const mealTypeOptions: { id: MealType; label: string }[] = [
     { id: "breakfast", label: "Kahvaltı" },
@@ -57,25 +62,64 @@ export default function AnalyzeMealPage() {
     setSelectedFile(file);
     setPreviewUrl(url);
     setAnalysisCompleted(false);
+    setAnalysisResult(null);
+    setApiError(null);
   };
 
-  const handleStartAnalysis = (file: File) => {
+  const handleStartAnalysis = async (file: File) => {
     setSelectedFile(file);
     setIsAnalyzing(true);
-    // Simulate Gemini Vision Multimodal scanning in Phase 3
-    setTimeout(() => {
-      setIsAnalyzing(false);
+    setApiError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+      formData.append("mealType", mealType);
+
+      const response = await fetch("/api/analyze-meal", {
+        method: "POST",
+        body: formData,
+      });
+
+      const resJson = await response.json();
+
+      if (!response.ok || !resJson.success) {
+        throw new Error(
+          resJson.error?.message ||
+            "Yemek analiz edilemedi. Lütfen daha net veya aydınlık bir fotoğraf deneyin."
+        );
+      }
+
+      setAnalysisResult(resJson.data as GeminiMealAnalysisResult);
       setAnalysisCompleted(true);
-    }, 2400);
+    } catch (err: unknown) {
+      console.error("[NutriTrack AI] Analiz hatası:", err);
+      setApiError(
+        err instanceof Error
+          ? err.message
+          : "Yemek analiz edilemedi. Lütfen daha net veya aydınlık bir fotoğraf deneyin."
+      );
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   const handleResetAnalysis = () => {
     setAnalysisCompleted(false);
     setPreviewUrl(null);
     setSelectedFile(null);
+    setAnalysisResult(null);
+    setApiError(null);
+  };
+
+  const handleRetry = () => {
+    if (selectedFile) {
+      handleStartAnalysis(selectedFile);
+    }
   };
 
   const handleSaveToDiary = () => {
+    // Navigates to dashboard for Phase 5 persistence
     router.push("/");
   };
 
@@ -98,7 +142,7 @@ export default function AnalyzeMealPage() {
 
             <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container text-app-text-muted text-xs font-medium w-fit">
               <Sparkles className="w-3.5 h-3.5 text-primary" />
-              <span>Günlük sınırsız AI deneme modu aktif</span>
+              <span>Gemini 2.5 Flash Vision devrede</span>
             </div>
           </div>
 
@@ -140,14 +184,50 @@ export default function AnalyzeMealPage() {
             </div>
           </div>
 
-          {/* Dynamic Content Area: Uploader vs Loading vs Completed Result */}
+          {/* API Error State Card */}
+          {apiError && (
+            <div
+              role="alert"
+              className="p-5 rounded-3xl bg-red-50/90 border border-red-200 text-app-error space-y-3 animate-fade-in shadow-xs"
+            >
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-app-error shrink-0 mt-0.5" />
+                <div className="space-y-1 flex-1">
+                  <h3 className="text-sm font-bold text-app-error">Analiz Tamamlanamadı</h3>
+                  <p className="text-xs text-app-error/90 leading-relaxed">
+                    {apiError}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 pt-2 border-t border-red-200/60">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleRetry}
+                  leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
+                  className="bg-white"
+                >
+                  Tekrar Dene
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleResetAnalysis}
+                >
+                  Başka Fotoğraf Seç
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Dynamic Content Area: Uploader vs Loading vs Live Analysis Result */}
           {isAnalyzing ? (
             /* Skeleton Loading State */
             <AnalysisLoadingState previewUrl={previewUrl} />
-          ) : analysisCompleted ? (
-            /* Analysis Completed Result Preview (Phase 3 Interactive Demo) */
+          ) : analysisCompleted && analysisResult ? (
+            /* Live Gemini Multimodal Analysis Result */
             <div className="space-y-6 animate-fade-in">
-              {/* Image with Stitch-style Scanning Pins */}
+              {/* Image with Stitch-style Scanning Badges */}
               <div className="relative w-full rounded-3xl overflow-hidden bg-surface-container-lowest border border-surface-container shadow-card">
                 <div className="relative w-full aspect-[4/3] max-h-[380px] overflow-hidden bg-surface-container-low flex items-center justify-center">
                   {previewUrl && (
@@ -161,52 +241,62 @@ export default function AnalyzeMealPage() {
 
                   {/* Overlaid Badges */}
                   <div className="absolute top-3 inset-x-3 flex items-center justify-between pointer-events-none">
-                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-surface-container-lowest/90 backdrop-blur-md text-xs font-semibold text-app-text-main shadow-xs">
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-surface-container-lowest/90 backdrop-blur-md text-xs font-semibold text-app-text-main shadow-xs">
                       <span className="w-2 h-2 rounded-full bg-primary animate-ping" />
-                      Gemini Vision 2.5
+                      Gemini Multimodal Vision
                     </span>
-                    <Badge confidence="high" />
+                    <Badge confidence={analysisResult.confidence} />
                   </div>
 
-                  {/* Detection Anchors */}
-                  <div className="absolute top-[32%] left-[26%] -translate-x-1/2 -translate-y-1/2 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-app-text-dark/85 backdrop-blur-md text-white text-[11px] font-bold shadow-md pointer-events-none">
-                    <span className="w-1.5 h-1.5 rounded-full bg-primary-light" />
-                    <span>Protein Kaynağı</span>
-                  </div>
-                  <div className="absolute bottom-[28%] left-[50%] -translate-x-1/2 -translate-y-1/2 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-app-text-dark/85 backdrop-blur-md text-white text-[11px] font-bold shadow-md pointer-events-none">
-                    <span className="w-1.5 h-1.5 rounded-full bg-water-light" />
-                    <span>Kompleks Karbonhidrat</span>
-                  </div>
-                  <div className="absolute top-[38%] right-[18%] -translate-x-1/2 -translate-y-1/2 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-app-text-dark/85 backdrop-blur-md text-white text-[11px] font-bold shadow-md pointer-events-none">
-                    <span className="w-1.5 h-1.5 rounded-full bg-calorie-light" />
-                    <span>Sağlıklı Yağ &amp; Yeşillik</span>
-                  </div>
+                  {/* Visual Detection Anchors */}
+                  {analysisResult.items.slice(0, 3).map((item, idx) => {
+                    const positions = [
+                      "top-[32%] left-[26%]",
+                      "bottom-[28%] left-[50%]",
+                      "top-[38%] right-[18%]",
+                    ];
+                    const dotColors = [
+                      "bg-primary-light",
+                      "bg-water-light",
+                      "bg-calorie-light",
+                    ];
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`absolute ${positions[idx] || "top-1/2 left-1/2"} -translate-x-1/2 -translate-y-1/2 flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-app-text-dark/85 backdrop-blur-md text-white text-[11px] font-bold shadow-md pointer-events-none`}
+                      >
+                        <span className={`w-1.5 h-1.5 rounded-full ${dotColors[idx] || "bg-primary"}`} />
+                        <span>{item.name}</span>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {/* Status completion bar */}
                 <div className="p-3.5 bg-primary-soft/40 border-t border-primary/10 flex items-center justify-between text-xs text-primary font-semibold">
                   <div className="flex items-center gap-1.5">
                     <CheckCircle2 className="w-4 h-4" />
-                    <span>Porsiyon ve Makro Ayrıştırma Başarıyla Tamamlandı</span>
+                    <span>Porsiyon ve Besin Değerleri Ayrıştırıldı</span>
                   </div>
                   <span className="tabular-nums font-mono text-[11px] text-app-text-muted">
-                    0.42 sn
+                    {analysisResult.items.length} Besin Kalemi
                   </span>
                 </div>
               </div>
 
               {/* AI Detection Summary Card */}
               <Card variant="standard" className="p-5 sm:p-6 space-y-6">
-                <CardHeader className="p-0 pb-2 flex flex-row items-start justify-between">
+                <CardHeader className="p-0 pb-2 flex flex-row items-start justify-between gap-4">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <span className="text-[11px] font-bold uppercase tracking-wider text-primary">
                         Yapay Zekâ Tespiti
                       </span>
-                      <Badge variant="primary">Güven: %94</Badge>
+                      <Badge confidence={analysisResult.confidence} />
                     </div>
                     <CardTitle as="h2" className="text-xl sm:text-2xl font-extrabold">
-                      Izgara Tavuklu Pirinç ve Sebze Kasesi
+                      {analysisResult.mealName}
                     </CardTitle>
                     <CardDescription className="flex items-center gap-1 mt-1 flex-wrap">
                       <Info className="w-3.5 h-3.5" />
@@ -221,7 +311,7 @@ export default function AnalyzeMealPage() {
 
                   <div className="text-right shrink-0">
                     <span className="text-3xl font-extrabold text-app-text-main tabular-nums">
-                      560
+                      {analysisResult.totalCalories}
                     </span>
                     <span className="block text-xs font-semibold text-app-text-muted uppercase">
                       kcal
@@ -233,18 +323,36 @@ export default function AnalyzeMealPage() {
                 <div className="grid grid-cols-3 gap-3 pt-3 border-t border-surface-container text-center">
                   <div className="p-3 rounded-2xl bg-surface-container-low">
                     <span className="text-xs text-app-text-muted block font-medium">Protein</span>
-                    <span className="text-base font-bold text-primary tabular-nums">50g</span>
-                    <span className="text-[10px] text-app-text-muted block">%36 kalori</span>
+                    <span className="text-base font-bold text-primary tabular-nums">
+                      {analysisResult.totalProtein}g
+                    </span>
+                    <span className="text-[10px] text-app-text-muted block">
+                      {analysisResult.totalCalories > 0
+                        ? `%${Math.round(((analysisResult.totalProtein * 4) / analysisResult.totalCalories) * 100)} kalori`
+                        : "Protein"}
+                    </span>
                   </div>
                   <div className="p-3 rounded-2xl bg-surface-container-low">
                     <span className="text-xs text-app-text-muted block font-medium">Karbonhidrat</span>
-                    <span className="text-base font-bold text-calorie tabular-nums">62g</span>
-                    <span className="text-[10px] text-app-text-muted block">%44 kalori</span>
+                    <span className="text-base font-bold text-calorie tabular-nums">
+                      {analysisResult.totalCarbs}g
+                    </span>
+                    <span className="text-[10px] text-app-text-muted block">
+                      {analysisResult.totalCalories > 0
+                        ? `%${Math.round(((analysisResult.totalCarbs * 4) / analysisResult.totalCalories) * 100)} kalori`
+                        : "Karbonhidrat"}
+                    </span>
                   </div>
                   <div className="p-3 rounded-2xl bg-surface-container-low">
                     <span className="text-xs text-app-text-muted block font-medium">Sağlıklı Yağ</span>
-                    <span className="text-base font-bold text-water tabular-nums">13g</span>
-                    <span className="text-[10px] text-app-text-muted block">%20 kalori</span>
+                    <span className="text-base font-bold text-water tabular-nums">
+                      {analysisResult.totalFat}g
+                    </span>
+                    <span className="text-[10px] text-app-text-muted block">
+                      {analysisResult.totalCalories > 0
+                        ? `%${Math.round(((analysisResult.totalFat * 9) / analysisResult.totalCalories) * 100)} kalori`
+                        : "Yağ"}
+                    </span>
                   </div>
                 </div>
 
@@ -252,63 +360,52 @@ export default function AnalyzeMealPage() {
                 <div className="space-y-3 pt-2">
                   <span className="text-xs font-bold text-app-text-main flex items-center gap-1.5">
                     <Layers className="w-4 h-4 text-primary" />
-                    Tespit Edilen Besin Kalemleri (3 Kalem):
+                    Tespit Edilen Besin Kalemleri ({analysisResult.items.length} Kalem):
                   </span>
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between p-3 rounded-2xl bg-surface-container-low text-xs">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-primary-soft text-primary flex items-center justify-center">
-                          <Utensils className="w-4 h-4" />
+                    {analysisResult.items.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between p-3 rounded-2xl bg-surface-container-low text-xs hover:bg-surface-container transition-colors"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="w-8 h-8 rounded-xl bg-primary-soft text-primary flex items-center justify-center shrink-0">
+                            <Utensils className="w-4 h-4" />
+                          </div>
+                          <div className="min-w-0">
+                            <span className="font-bold text-app-text-main block truncate">
+                              {item.name}
+                            </span>
+                            <span className="text-[11px] text-app-text-muted tabular-nums">
+                              {item.estimatedPortion} ({item.estimatedWeightGrams}g) •{" "}
+                              {item.protein}g P • {item.carbs}g K • {item.fat}g Y
+                            </span>
+                          </div>
                         </div>
-                        <div>
-                          <span className="font-bold text-app-text-main block">
-                            Izgara Tavuk Göğsü
-                          </span>
-                          <span className="text-[11px] text-app-text-muted tabular-nums">
-                            180g • 44g P • 0g K • 6g Y
-                          </span>
-                        </div>
+                        <span className="font-bold text-app-text-main tabular-nums shrink-0 pl-2">
+                          {item.calories} kcal
+                        </span>
                       </div>
-                      <span className="font-bold text-app-text-main tabular-nums">290 kcal</span>
-                    </div>
-
-                    <div className="flex items-center justify-between p-3 rounded-2xl bg-surface-container-low text-xs">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-calorie-soft text-calorie flex items-center justify-center">
-                          <Utensils className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <span className="font-bold text-app-text-main block">
-                            Yasemin Pirinci
-                          </span>
-                          <span className="text-[11px] text-app-text-muted tabular-nums">
-                            150g • 4g P • 48g K • 1g Y
-                          </span>
-                        </div>
-                      </div>
-                      <span className="font-bold text-app-text-main tabular-nums">210 kcal</span>
-                    </div>
-
-                    <div className="flex items-center justify-between p-3 rounded-2xl bg-surface-container-low text-xs">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-xl bg-water-soft text-water flex items-center justify-center">
-                          <Utensils className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <span className="font-bold text-app-text-main block">
-                            Buharda Brokoli &amp; Havuç
-                          </span>
-                          <span className="text-[11px] text-app-text-muted tabular-nums">
-                            100g • 2g P • 14g K • 6g Y
-                          </span>
-                        </div>
-                      </div>
-                      <span className="font-bold text-app-text-main tabular-nums">60 kcal</span>
-                    </div>
+                    ))}
                   </div>
                 </div>
 
-                {/* Final Actions */}
+                {/* AI Notes and Observations */}
+                {analysisResult.notes && analysisResult.notes.length > 0 && (
+                  <div className="p-3.5 rounded-2xl bg-surface-container-low/70 border border-surface-container text-xs text-app-text-muted space-y-1.5">
+                    <span className="font-semibold text-app-text-main flex items-center gap-1.5 text-[11px]">
+                      <Sparkles className="w-3.5 h-3.5 text-primary" />
+                      Yapay Zekâ Gözlem Notları:
+                    </span>
+                    <ul className="list-disc list-inside space-y-0.5 text-[11px] leading-relaxed">
+                      {analysisResult.notes.map((note, idx) => (
+                        <li key={idx}>{note}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Final Actions for Phase 5 Preparation */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4 border-t border-surface-container">
                   <Button
                     variant="outline"
@@ -323,9 +420,10 @@ export default function AnalyzeMealPage() {
                     size="lg"
                     onClick={handleSaveToDiary}
                     leftIcon={<Plus className="w-4 h-4" />}
+                    rightIcon={<Edit3 className="w-4 h-4 opacity-70" />}
                     className="w-full shadow-md shadow-primary/20"
                   >
-                    Günlüğe Kaydet
+                    Öğünü Düzenle ve Kaydet
                   </Button>
                 </div>
               </Card>

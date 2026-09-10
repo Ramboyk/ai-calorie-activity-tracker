@@ -34,3 +34,24 @@ export interface Meal {
   createdAt: string; // ISO timestamp
   updatedAt?: string;
 }
+
+export interface GeminiFoodItem {
+  name: string;
+  estimatedPortion: string;
+  estimatedWeightGrams: number;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+}
+
+export interface GeminiMealAnalysisResult {
+  mealName: string;
+  items: GeminiFoodItem[];
+  totalCalories: number;
+  totalProtein: number;
+  totalCarbs: number;
+  totalFat: number;
+  confidence: "low" | "medium" | "high";
+  notes: string[];
+}
