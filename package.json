@@ -7,7 +7,8 @@
     "dev": "node node_modules/next/dist/bin/next dev",
     "build": "node node_modules/next/dist/bin/next build",
     "start": "node node_modules/next/dist/bin/next start",
-    "lint": "node ./node_modules/eslint/bin/eslint.js src"
+    "lint": "node ./node_modules/eslint/bin/eslint.js src",
+    "test": "node node_modules/vitest/vitest.mjs run"
   },
   "dependencies": {
     "@google/genai": "^2.21.0",
@@ -29,6 +30,8 @@
     "eslint": "^9",
     "eslint-config-next": "16.3.4",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vite": "^8.3.0",
+    "vitest": "^5.0.0"
   }
 }
