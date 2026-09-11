@@ -254,8 +254,13 @@ export async function POST(
       );
     }
 
-    // 8. Call Gemini Multimodal API with Multi-Model Fallback ("gemini-2.5-flash" -> "gemini-1.5-flash")
-    const modelsToTry = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.0-flash"];
+    // 8. Call Gemini Multimodal API with Multi-Model Fallback (Google recommends gemini-3.6-flash)
+    const modelsToTry = [
+      "gemini-3.6-flash",
+      "gemini-3.7-flash",
+      "gemini-3.8-flash",
+      "gemini-2.5-flash",
+    ];
     let responseText: string | null = null;
     let lastError: unknown = null;
 

@@ -331,7 +331,7 @@ export default function AnalyzeMealPage() {
         ? {
             score: analysisResult.confidence === "high" ? 95 : analysisResult.confidence === "medium" ? 80 : 50,
             level: analysisResult.confidence,
-            modelVersion: "Gemini-2.5-Flash-Vision",
+            modelVersion: "Gemini-3.6-Flash-Vision",
           }
         : undefined,
       createdAt: new Date().toISOString(),
@@ -376,7 +376,7 @@ export default function AnalyzeMealPage() {
             <div className="flex flex-wrap items-center gap-2">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-surface-container text-app-text-muted text-xs font-medium w-fit">
                 <Sparkles className="w-3.5 h-3.5 text-primary" />
-                <span>Gemini 2.5 Flash Vision</span>
+                <span>Gemini 3.6 Flash Vision</span>
               </div>
 
               {/* Gemini API Key Status / Config Button */}
