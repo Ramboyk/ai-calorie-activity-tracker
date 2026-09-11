@@ -8,6 +8,7 @@ import {
   Header,
   BottomNav,
   ImageUploader,
+  ApiKeyModal,
   AnalysisLoadingState,
   DisclaimerBanner,
   Button,
@@ -36,6 +37,7 @@ import {
   Utensils,
   Check,
   ShieldAlert,
+  KeyRound,
 } from "lucide-react";
 
 export default function AnalyzeMealPage() {
@@ -65,6 +67,11 @@ export default function AnalyzeMealPage() {
   const [quotaExceededMessage, setQuotaExceededMessage] = useState<string>("");
   const [isAdminUser, setIsAdminUser] = useState<boolean>(false);
 
+  // Gemini API Key State & In-App Configuration
+  const [isKeyModalOpen, setIsKeyModalOpen] = useState<boolean>(false);
+  const [customApiKey, setCustomApiKey] = useState<string>("");
+  const [isServerGeminiConfigured, setIsServerGeminiConfigured] = useState<boolean>(true);
+
   // Review & Editing State (Phase 5)
   const [isReviewMode, setIsReviewMode] = useState<boolean>(false);
   const [mealTitle, setMealTitle] = useState<string>("");
@@ -72,9 +79,15 @@ export default function AnalyzeMealPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
 
-  // Fetch remaining quota on page mount
+  // Hydrate local API key & fetch quota on page mount
   useEffect(() => {
     let isMounted = true;
+
+    if (typeof window !== "undefined") {
+      const savedKey = localStorage.getItem("nutritrack_custom_gemini_key") || "";
+      setCustomApiKey(savedKey);
+    }
+
     async function fetchQuota() {
       try {
         const res = await fetch("/api/analyze-meal");
@@ -84,6 +97,7 @@ export default function AnalyzeMealPage() {
           setRemainingQuota(resJson.data.remainingLimit);
           setDailyLimit(resJson.data.dailyLimit || 3);
           setIsAdminUser(Boolean(resJson.data.isAdmin));
+          setIsServerGeminiConfigured(Boolean(resJson.data.isGeminiConfigured));
           if (resJson.data.isLimited) {
             setIsQuotaExceeded(true);
             setQuotaExceededMessage(
@@ -126,12 +140,25 @@ export default function AnalyzeMealPage() {
       formData.append("image", file);
       formData.append("mealType", mealType);
 
+      const headers: HeadersInit = {};
+      const activeKey = customApiKey || (typeof window !== "undefined" ? localStorage.getItem("nutritrack_custom_gemini_key") : "");
+      if (activeKey) {
+        headers["x-gemini-key"] = activeKey.trim();
+      }
+
       const response = await fetch("/api/analyze-meal", {
         method: "POST",
+        headers,
         body: formData,
       });
 
       const resJson = await response.json();
+
+      if (resJson.error?.code === "MISSING_GEMINI_KEY") {
+        setIsKeyModalOpen(true);
+        setApiError(resJson.error.message);
+        return;
+      }
 
       if (response.status === 429 || resJson.error?.code?.includes("LIMIT_EXCEEDED")) {
         setIsQuotaExceeded(true);
@@ -352,6 +379,28 @@ export default function AnalyzeMealPage() {
                 <span>Gemini 2.5 Flash Vision</span>
               </div>
 
+              {/* Gemini API Key Status / Config Button */}
+              <button
+                type="button"
+                onClick={() => setIsKeyModalOpen(true)}
+                className={cn(
+                  "inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-bold transition-all select-none cursor-pointer",
+                  isServerGeminiConfigured || customApiKey
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/20"
+                    : "bg-amber-500/15 border-amber-500/40 text-amber-700 dark:text-amber-300 animate-pulse hover:bg-amber-500/25"
+                )}
+                title="Google Gemini API Anahtarı Ayarları"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                <span>
+                  {isServerGeminiConfigured
+                    ? "Gemini Sunucu Aktif"
+                    : customApiKey
+                    ? "Özel API Aktif"
+                    : "🔑 API Anahtarı Ekle"}
+                </span>
+              </button>
+
               {/* Quota Badge / Admin Showcase Badge */}
               <div
                 className={cn(
@@ -390,6 +439,37 @@ export default function AnalyzeMealPage() {
               </div>
             </div>
           </div>
+
+          {/* Missing API Key Notice Banner */}
+          {!isServerGeminiConfigured && !customApiKey && !isReviewMode && (
+            <div
+              role="alert"
+              className="p-4 sm:p-5 rounded-3xl bg-amber-500/10 border border-amber-500/30 text-app-text-main flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in shadow-xs"
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+                  <KeyRound className="w-5 h-5" />
+                </div>
+                <div className="space-y-0.5">
+                  <h3 className="text-xs sm:text-sm font-extrabold text-app-text-main">
+                    Canlı Yapay Zekâ İçin API Anahtarı Gerekli
+                  </h3>
+                  <p className="text-[11px] sm:text-xs text-app-text-muted leading-relaxed">
+                    Yemekleri şablon yerine <strong>gerçek Gemini 2.5 Flash</strong> ile anlık tanımak için Google AI Studio&apos;dan ücretsiz API anahtarınızı tanımlayın.
+                  </p>
+                </div>
+              </div>
+              <Button
+                variant="primary"
+                size="sm"
+                onClick={() => setIsKeyModalOpen(true)}
+                leftIcon={<KeyRound className="w-3.5 h-3.5" />}
+                className="shrink-0 text-xs font-bold"
+              >
+                Anahtarı Tanımla
+              </Button>
+            </div>
+          )}
 
           {/* Success Notification Alert */}
           {saveSuccessMessage && (
@@ -711,6 +791,17 @@ export default function AnalyzeMealPage() {
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onAdd={handleAddCustomItem}
+      />
+
+      {/* Gemini API Key Modal Dialog */}
+      <ApiKeyModal
+        isOpen={isKeyModalOpen}
+        onClose={() => setIsKeyModalOpen(false)}
+        onKeySaved={(key) => {
+          setCustomApiKey(key);
+          setApiError(null);
+        }}
+        currentKey={customApiKey}
       />
 
       {/* Mobile Bottom Navigation */}

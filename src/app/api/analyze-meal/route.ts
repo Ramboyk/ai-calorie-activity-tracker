@@ -4,7 +4,6 @@ import {
   MEAL_ANALYSIS_SYSTEM_INSTRUCTION,
   MEAL_ANALYSIS_PROMPT,
   MEAL_ANALYSIS_SCHEMA,
-  FALLBACK_MEAL_ANALYSIS,
 } from "@/lib/ai/prompts";
 import {
   anonymizeIp,
@@ -63,7 +62,8 @@ function checkIsAdmin(request: NextRequest): boolean {
 
 /**
  * GET /api/analyze-meal
- * Returns current remaining AI quotas for client IP without consuming any quota.
+ * Returns current remaining AI quotas for client IP without consuming any quota,
+ * plus whether Gemini API key is configured on the server.
  */
 export async function GET(
   request: NextRequest
@@ -76,12 +76,14 @@ export async function GET(
       globalLimit: number;
       isLimited: boolean;
       isAdmin: boolean;
+      isGeminiConfigured: boolean;
     }>
   >
 > {
   const rawIp = getClientIp(request);
   const hashedIp = anonymizeIp(rawIp);
   const isAdmin = checkIsAdmin(request);
+  const isGeminiConfigured = hasValidGeminiKey();
 
   if (isAdmin) {
     return NextResponse.json({
@@ -93,6 +95,7 @@ export async function GET(
         globalLimit: GLOBAL_AI_DAILY_LIMIT,
         isLimited: false,
         isAdmin: true,
+        isGeminiConfigured,
       },
     });
   }
@@ -108,6 +111,7 @@ export async function GET(
       globalLimit: status.globalLimit,
       isLimited: !status.allowed,
       isAdmin: false,
+      isGeminiConfigured,
     },
   });
 }
@@ -123,6 +127,7 @@ export async function POST(
     const rawIp = getClientIp(request);
     const hashedIp = anonymizeIp(rawIp);
     const isAdmin = checkIsAdmin(request);
+    const userCustomKey = request.headers.get("x-gemini-key")?.trim();
 
     let currentRemaining = AI_DAILY_LIMIT;
 
@@ -215,116 +220,121 @@ export async function POST(
       );
     }
 
-    // 6. Check if GEMINI_API_KEY is configured
-    if (!hasValidGeminiKey()) {
-      console.warn(
-        "[NutriTrack AI] GEMINI_API_KEY tanımlı değil veya şablon değerinde. Geliştirme ortamı için simülasyon yanıtı kullanılıyor."
+    // 6. Check if GEMINI_API_KEY is configured (either on server or provided by user in header)
+    if (!hasValidGeminiKey(userCustomKey)) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "MISSING_GEMINI_KEY",
+            message:
+              "Google Gemini API anahtarı tanımlanmamış. Gerçek yapay zekâ analizinin çalışabilmesi için Google AI Studio'dan aldığınız ücretsiz API anahtarını ekleyin veya Vercel üzerinde GEMINI_API_KEY olarak tanımlayın.",
+          },
+          remainingLimit: currentRemaining,
+        },
+        { status: 400 }
       );
-
-      if (!isAdmin) {
-        const remaining = await incrementRateLimit(hashedIp);
-        currentRemaining = remaining.remainingIp;
-      }
-
-      // Return realistic mock analysis to maintain UX during dev
-      return NextResponse.json({
-        success: true,
-        data: FALLBACK_MEAL_ANALYSIS,
-        message: "Demo modu: AI tahmini yerel simülasyon ile üretildi.",
-        remainingLimit: isAdmin ? 999 : currentRemaining,
-      });
     }
 
     // 7. Convert validated buffer to base64 string in-memory
     const base64Data = buffer.toString("base64");
 
-    const client = getGeminiClient();
+    const client = getGeminiClient(userCustomKey);
     if (!client) {
-      return NextResponse.json({
-        success: true,
-        data: FALLBACK_MEAL_ANALYSIS,
-        remainingLimit: isAdmin ? 999 : currentRemaining,
-      });
-    }
-
-    // 7. Call Gemini Multimodal API with Structured Output schema
-    try {
-      const response = await client.models.generateContent({
-        model: "gemini-2.5-flash",
-        contents: [
-          {
-            role: "user",
-            parts: [
-              { text: MEAL_ANALYSIS_PROMPT },
-              {
-                inlineData: {
-                  mimeType: file.type,
-                  data: base64Data,
-                },
-              },
-            ],
+      return NextResponse.json(
+        {
+          success: false,
+          error: {
+            code: "GEMINI_CLIENT_INIT_FAILED",
+            message: "Gemini istemcisi başlatılamadı. Lütfen API anahtarınızı kontrol edin.",
           },
-        ],
-        config: {
-          systemInstruction: MEAL_ANALYSIS_SYSTEM_INSTRUCTION,
-          responseMimeType: "application/json",
-          responseSchema: MEAL_ANALYSIS_SCHEMA as unknown as Record<string, unknown>,
-          temperature: 0.2,
+          remainingLimit: currentRemaining,
         },
-      });
-
-      const responseText = response.text;
-      if (!responseText) {
-        throw new Error("Gemini modelinden boş yanıt döndü.");
-      }
-
-      const parsedData = JSON.parse(responseText) as GeminiMealAnalysisResult;
-
-      // 8. Decrement quota only after successful AI analysis
-      if (!isAdmin) {
-        const remaining = await incrementRateLimit(hashedIp);
-        currentRemaining = remaining.remainingIp;
-      }
-
-      return NextResponse.json({
-        success: true,
-        data: parsedData,
-        remainingLimit: isAdmin ? 999 : currentRemaining,
-      });
-    } catch (apiError: unknown) {
-      console.error("[NutriTrack AI] Gemini Vision API çağrısı sırasında hata oluştu:", apiError);
-
-      if (!isAdmin) {
-        const remaining = await incrementRateLimit(hashedIp);
-        currentRemaining = remaining.remainingIp;
-      }
-
-      // Gracefully fall back so user does not get a broken page
-      return NextResponse.json({
-        success: true,
-        data: {
-          ...FALLBACK_MEAL_ANALYSIS,
-          notes: [
-            ...FALLBACK_MEAL_ANALYSIS.notes,
-            "Canlı API kotası veya bağlantı gecikmesi nedeniyle önceden optimize edilmiş referans besin modeli kullanıldı.",
-          ],
-        },
-        message: "Yedek besin modeli devreye alındı.",
-        remainingLimit: isAdmin ? 999 : currentRemaining,
-      });
+        { status: 400 }
+      );
     }
-  } catch (err: unknown) {
-    console.error("[NutriTrack AI] /api/analyze-meal beklenmeyen hata:", err);
+
+    // 8. Call Gemini Multimodal API with Multi-Model Fallback ("gemini-2.5-flash" -> "gemini-1.5-flash")
+    const modelsToTry = ["gemini-2.5-flash", "gemini-1.5-flash", "gemini-2.0-flash"];
+    let responseText: string | null = null;
+    let lastError: unknown = null;
+
+    for (const modelName of modelsToTry) {
+      try {
+        const response = await client.models.generateContent({
+          model: modelName,
+          contents: [
+            {
+              role: "user",
+              parts: [
+                { text: MEAL_ANALYSIS_PROMPT },
+                {
+                  inlineData: {
+                    mimeType: file.type,
+                    data: base64Data,
+                  },
+                },
+              ],
+            },
+          ],
+          config: {
+            systemInstruction: MEAL_ANALYSIS_SYSTEM_INSTRUCTION,
+            responseMimeType: "application/json",
+            responseSchema: MEAL_ANALYSIS_SCHEMA as unknown as Record<string, unknown>,
+            temperature: 0.2,
+          },
+        });
+
+        if (response.text) {
+          responseText = response.text;
+          break;
+        }
+      } catch (modelErr) {
+        console.warn(`[NutriTrack AI] Model ${modelName} hatası, alternatif model deneniyor:`, modelErr);
+        lastError = modelErr;
+      }
+    }
+
+    if (!responseText) {
+      throw lastError || new Error("Gemini modelinden geçerli yanıt alınamadı.");
+    }
+
+    const parsedData = JSON.parse(responseText) as GeminiMealAnalysisResult;
+
+    // 9. Decrement quota only after genuine, successful AI analysis
+    if (!isAdmin) {
+      const remaining = await incrementRateLimit(hashedIp);
+      currentRemaining = remaining.remainingIp;
+    }
+
+    return NextResponse.json({
+      success: true,
+      data: parsedData,
+      remainingLimit: isAdmin ? 999 : currentRemaining,
+    });
+  } catch (apiError: unknown) {
+    console.error("[NutriTrack AI] Gemini Vision API çağrısı sırasında hata oluştu:", apiError);
+
+    const rawErr = apiError instanceof Error ? apiError.message : String(apiError);
+    let userMessage = "Yapay zekâ görsel analizi sırasında bir hata oluştu.";
+
+    if (rawErr.includes("API_KEY_INVALID") || rawErr.includes("invalid api key") || rawErr.includes("API key not valid")) {
+      userMessage = "Geçersiz Gemini API anahtarı. Lütfen Google AI Studio'dan aldığınız anahtarı doğru girdiğinizden emin olun.";
+    } else if (rawErr.includes("RESOURCE_EXHAUSTED") || rawErr.includes("quota") || rawErr.includes("429")) {
+      userMessage = "Google Gemini API ücretsiz istek sınırınız doldu. Lütfen 1 dakika bekleyip tekrar deneyin.";
+    } else {
+      userMessage = `Gemini API Hatası: ${rawErr.length > 150 ? rawErr.substring(0, 150) + "..." : rawErr}`;
+    }
 
     return NextResponse.json(
       {
         success: false,
         error: {
-          code: "SERVER_ERROR",
-          message: "Yemek analiz edilirken sunucu tarafında bir hata oluştu. Lütfen tekrar deneyin.",
+          code: "GEMINI_API_ERROR",
+          message: userMessage,
         },
       },
-      { status: 500 }
+      { status: 502 }
     );
   }
 }
