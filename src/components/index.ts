@@ -28,6 +28,7 @@ export { ActivitySummaryCard, type ActivitySummaryCardProps } from "./dashboard/
 
 // Meal & AI Analysis Components
 export { ImageUploader, type ImageUploaderProps } from "./meal/ImageUploader";
+export { CameraModal, type CameraModalProps } from "./meal/CameraModal";
 export { AnalysisLoadingState, type AnalysisLoadingStateProps } from "./meal/AnalysisLoadingState";
 export { MealItemRow, type MealItemRowProps } from "./meal/MealItemRow";
 export { NutritionSummaryCard, type NutritionSummaryCardProps } from "./meal/NutritionSummaryCard";

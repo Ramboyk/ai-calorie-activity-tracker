@@ -23,6 +23,7 @@ import type {
 } from "@/types/meal";
 import { useTracker } from "@/context";
 import { cn } from "@/lib/utils/cn";
+import { createThumbnail } from "@/lib/utils/image-compression";
 import {
   ArrowLeft,
   Sparkles,
@@ -274,7 +275,19 @@ export default function AnalyzeMealPage() {
     );
   }, [editableItems]);
 
-  const handleSaveConfirmedMeal = () => {
+  const handleSaveConfirmedMeal = async () => {
+    let persistentImageUrl = previewUrl || undefined;
+    if (selectedFile) {
+      try {
+        const thumb = await createThumbnail(selectedFile, 320);
+        if (thumb) {
+          persistentImageUrl = thumb;
+        }
+      } catch {
+        // Fallback to previewUrl
+      }
+    }
+
     const finalMeal: Meal = {
       id: `meal_${Date.now()}`,
       userId: "user_demo_1",
@@ -286,7 +299,7 @@ export default function AnalyzeMealPage() {
       totalProtein: totals.protein,
       totalCarbs: totals.carbs,
       totalFat: totals.fat,
-      imageUrl: previewUrl || undefined,
+      imageUrl: persistentImageUrl,
       aiConfidence: analysisResult
         ? {
             score: analysisResult.confidence === "high" ? 95 : analysisResult.confidence === "medium" ? 80 : 50,

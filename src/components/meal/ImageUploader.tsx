@@ -11,7 +11,10 @@ import {
   RefreshCw,
   Image as ImageIcon,
   CheckCircle2,
+  Loader2,
 } from "lucide-react";
+import { CameraModal } from "./CameraModal";
+import { compressImage } from "@/lib/utils/image-compression";
 
 export interface ImageUploaderProps {
   onImageSelected?: (file: File, previewUrl: string) => void;
@@ -31,9 +34,11 @@ export function ImageUploader({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
+  const [isOptimizing, setIsOptimizing] = useState<boolean>(false);
+  const [isCameraModalOpen, setIsCameraModalOpen] = useState<boolean>(false);
 
-  const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  const fallbackCameraInputRef = useRef<HTMLInputElement>(null);
 
   // Clean up object URL when preview changes or component unmounts
   const cleanupPreviewUrl = useCallback(() => {
@@ -48,37 +53,67 @@ export function ImageUploader({
     };
   }, [cleanupPreviewUrl]);
 
-  const validateAndSetFile = (file: File) => {
+  /**
+   * Optimizes, compresses, and validates the file.
+   * Prevents mobile out-of-memory crashes by scaling huge phone photos down client-side.
+   */
+  const processAndSetFile = async (rawFile: File) => {
     setErrorMessage(null);
 
-    // MIME type check
-    if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+    // Initial check: must be an image
+    if (!rawFile.type.startsWith("image/") && !ALLOWED_MIME_TYPES.includes(rawFile.type)) {
       setErrorMessage("Lütfen geçerli bir görsel formatı seçin (JPG, PNG veya WEBP).");
       return;
     }
 
-    // Size check
-    if (file.size > MAX_FILE_SIZE_BYTES) {
-      setErrorMessage("Görsel boyutu 5 MB'tan küçük olmalıdır.");
-      return;
-    }
+    try {
+      setIsOptimizing(true);
 
-    cleanupPreviewUrl();
-    const newUrl = URL.createObjectURL(file);
-    setSelectedFile(file);
-    setPreviewUrl(newUrl);
+      // Client-side canvas compression: max 1600px, quality 0.82
+      const optimizedFile = await compressImage(rawFile, {
+        maxWidth: 1600,
+        maxHeight: 1600,
+        quality: 0.82,
+        mimeType: "image/jpeg",
+      });
 
-    if (onImageSelected) {
-      onImageSelected(file, newUrl);
+      // Post-optimization file size check against 5MB guard
+      if (optimizedFile.size > MAX_FILE_SIZE_BYTES) {
+        setErrorMessage("Görsel optimize edildikten sonra dahi 5 MB sınırını aşıyor.");
+        setIsOptimizing(false);
+        return;
+      }
+
+      cleanupPreviewUrl();
+      const newUrl = URL.createObjectURL(optimizedFile);
+      setSelectedFile(optimizedFile);
+      setPreviewUrl(newUrl);
+
+      if (onImageSelected) {
+        onImageSelected(optimizedFile, newUrl);
+      }
+    } catch (err) {
+      console.warn("[NutriTrack AI] Görsel optimize etme hatası:", err);
+      // Graceful fallback to original file
+      cleanupPreviewUrl();
+      const newUrl = URL.createObjectURL(rawFile);
+      setSelectedFile(rawFile);
+      setPreviewUrl(newUrl);
+
+      if (onImageSelected) {
+        onImageSelected(rawFile, newUrl);
+      }
+    } finally {
+      setIsOptimizing(false);
     }
   };
 
   const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      validateAndSetFile(file);
+      void processAndSetFile(file);
     }
-    // Reset inputs so user can choose the same file again if desired
+    // Reset input so user can choose the same file again if desired
     e.target.value = "";
   };
 
@@ -101,7 +136,7 @@ export function ImageUploader({
 
     const file = e.dataTransfer.files?.[0];
     if (file) {
-      validateAndSetFile(file);
+      void processAndSetFile(file);
     }
   };
 
@@ -112,8 +147,21 @@ export function ImageUploader({
     setErrorMessage(null);
   };
 
+  /**
+   * Tapping "Fotoğraf Çek":
+   * Prioritizes in-app live camera modal (getUserMedia) so Android OS never suspends or kills Chrome.
+   * Falls back to standard camera picker if getUserMedia is unavailable.
+   */
   const triggerCamera = () => {
-    cameraInputRef.current?.click();
+    if (
+      typeof navigator !== "undefined" &&
+      navigator.mediaDevices &&
+      typeof navigator.mediaDevices.getUserMedia === "function"
+    ) {
+      setIsCameraModalOpen(true);
+    } else {
+      fallbackCameraInputRef.current?.click();
+    }
   };
 
   const triggerGallery = () => {
@@ -129,23 +177,34 @@ export function ImageUploader({
 
   return (
     <div className="w-full space-y-4">
-      {/* Hidden File Inputs */}
+      {/* Hidden Native File Inputs */}
+      {/* 1. Gallery / File picker (no capture attribute to avoid aggressive camera takeover) */}
       <input
-        ref={cameraInputRef}
+        ref={galleryInputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/*"
+        onChange={handleFileInputChange}
+        className="hidden"
+        aria-label="Galeriden veya dosyalardan seç"
+      />
+
+      {/* 2. Fallback camera input if getUserMedia is not supported */}
+      <input
+        ref={fallbackCameraInputRef}
         type="file"
         accept="image/jpeg,image/png,image/webp"
         capture="environment"
         onChange={handleFileInputChange}
         className="hidden"
-        aria-label="Kamera ile fotoğraf çek"
+        aria-label="Yedek kamera ile çek"
       />
-      <input
-        ref={galleryInputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp"
-        onChange={handleFileInputChange}
-        className="hidden"
-        aria-label="Galeriden dosya seç"
+
+      {/* In-App Live Camera Modal */}
+      <CameraModal
+        isOpen={isCameraModalOpen}
+        onClose={() => setIsCameraModalOpen(false)}
+        onCapture={(capturedFile) => void processAndSetFile(capturedFile)}
+        onFallbackToFilePicker={triggerGallery}
       />
 
       {/* Error Alert Card */}
@@ -174,6 +233,20 @@ export function ImageUploader({
         </div>
       )}
 
+      {/* Optimizing Indicator Overlay Banner */}
+      {isOptimizing && (
+        <div
+          role="status"
+          className="p-4 rounded-2xl bg-primary-soft/60 border border-primary/20 text-primary flex items-center gap-3 animate-pulse"
+        >
+          <Loader2 className="w-5 h-5 animate-spin text-primary" />
+          <div className="text-xs">
+            <p className="font-bold">Görsel mobil bellek için optimize ediliyor...</p>
+            <p className="text-app-text-muted mt-0.5">Yüksek çözünürlük yapay zekâ için sıkıştırılıyor.</p>
+          </div>
+        </div>
+      )}
+
       {/* When NO image is selected: Action Buttons & Drag-Drop Zone */}
       {!previewUrl && (
         <div className="space-y-4">
@@ -185,6 +258,7 @@ export function ImageUploader({
               onClick={triggerCamera}
               leftIcon={<Camera className="w-5 h-5" />}
               className="w-full shadow-sm"
+              disabled={isOptimizing}
             >
               Fotoğraf Çek
             </Button>
@@ -194,6 +268,7 @@ export function ImageUploader({
               onClick={triggerGallery}
               leftIcon={<ImageIcon className="w-5 h-5 text-primary" />}
               className="w-full"
+              disabled={isOptimizing}
             >
               Galeriden Seç
             </Button>
@@ -220,14 +295,14 @@ export function ImageUploader({
                 Yemek fotoğrafını buraya sürükleyin
               </p>
               <p className="text-xs text-app-text-muted">
-                veya bilgisayarınızdan/galerinizden bir dosya seçmek için tıklayın
+                veya cihazınızdan/galerinizden bir dosya seçmek için tıklayın
               </p>
             </div>
 
             <div className="flex items-center gap-2 pt-2 text-[11px] font-medium text-app-text-muted">
               <span className="px-2 py-0.5 rounded-md bg-surface-container">JPG, PNG, WEBP</span>
               <span>•</span>
-              <span>Maksimum 5 MB</span>
+              <span>Otomatik Mobil Bellek Optimizasyonu</span>
             </div>
           </div>
         </div>
@@ -254,7 +329,7 @@ export function ImageUploader({
                 </span>
                 <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary-light/90 text-primary text-xs font-bold shadow-xs">
                   <CheckCircle2 className="w-3.5 h-3.5" />
-                  Doğrulandı
+                  Optimize Edildi
                 </span>
               </div>
 
