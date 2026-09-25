@@ -8,9 +8,14 @@
     "build": "node node_modules/next/dist/bin/next build",
     "start": "node node_modules/next/dist/bin/next start",
     "lint": "node ./node_modules/eslint/bin/eslint.js src",
-    "test": "node node_modules/vitest/vitest.mjs run"
+    "test": "node node_modules/vitest/vitest.mjs run",
+    "cap:sync": "node node_modules/@capacitor/cli/bin/capacitor sync android",
+    "cap:open": "node node_modules/@capacitor/cli/bin/capacitor open android"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.2",
+    "@capacitor/cli": "^8.5.2",
+    "@capacitor/core": "^8.5.2",
     "@google/genai": "^2.21.0",
     "@upstash/redis": "^1.38.4",
     "clsx": "^2.1.1",
