@@ -21,6 +21,11 @@ import {
 } from "@/lib/firebase/firestore";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { ToastContainer, type ToastItem, type ToastType } from "@/components/ui/Toast";
+import {
+  getStorageItem,
+  setStorageItem,
+  migrateFromLocalStorage,
+} from "@/lib/storage/indexed-db";
 
 export interface MacroGoals {
   protein: number;
@@ -316,29 +321,17 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
     }, 3500);
   }, []);
 
-  // Sync to LocalStorage helpers
+  // Sync to IndexedDB helpers (with localStorage mirror & zero quota error)
   const persistMeals = useCallback((newMeals: Meal[]) => {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_MEALS_KEY, JSON.stringify(newMeals));
-    } catch (err) {
-      console.error("[NutriTrack AI] localStorage yazma hatası (meals):", err);
-    }
+    void setStorageItem(LOCAL_STORAGE_MEALS_KEY, newMeals);
   }, []);
 
   const persistActivities = useCallback((newActs: ExerciseLog[]) => {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_ACTIVITIES_KEY, JSON.stringify(newActs));
-    } catch (err) {
-      console.error("[NutriTrack AI] localStorage yazma hatası (activities):", err);
-    }
+    void setStorageItem(LOCAL_STORAGE_ACTIVITIES_KEY, newActs);
   }, []);
 
   const persistDailyLogs = useCallback((newLogs: Record<string, DailyLog>) => {
-    try {
-      localStorage.setItem(LOCAL_STORAGE_DAILY_LOGS_KEY, JSON.stringify(newLogs));
-    } catch (err) {
-      console.error("[NutriTrack AI] localStorage yazma hatası (dailyLogs):", err);
-    }
+    void setStorageItem(LOCAL_STORAGE_DAILY_LOGS_KEY, newLogs);
   }, []);
 
   // Background Cloud Sync helpers
@@ -387,84 +380,80 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
     }
   }, [persistMeals, persistActivities, persistDailyLogs]);
 
-  // Read LocalStorage on Client Mount (SSR-Safe) & Background Cloud Hydration
+  // Read Storage on Client Mount (SSR-Safe, IndexedDB primary, Auto-migrating)
   useEffect(() => {
-    queueMicrotask(() => {
+    let isCancelled = false;
+
+    async function hydrateStorage() {
       const todayStr = getTodayDateString();
 
-      // Hydrate Meals
+      // 1. Transparent migration from legacy localStorage to IndexedDB
+      await migrateFromLocalStorage([
+        LOCAL_STORAGE_MEALS_KEY,
+        LOCAL_STORAGE_ACTIVITIES_KEY,
+        LOCAL_STORAGE_DAILY_LOGS_KEY,
+      ]);
+
+      if (isCancelled) return;
+
+      // 2. Hydrate Meals
       try {
-        const storedMeals = localStorage.getItem(LOCAL_STORAGE_MEALS_KEY);
-        if (storedMeals) {
-          const parsed = JSON.parse(storedMeals) as Meal[];
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setMeals(parsed);
-          } else {
-            const initialSeed = getInitialSeedMeals(todayStr);
-            setMeals(initialSeed);
-            localStorage.setItem(LOCAL_STORAGE_MEALS_KEY, JSON.stringify(initialSeed));
-          }
+        const storedMeals = await getStorageItem<Meal[]>(LOCAL_STORAGE_MEALS_KEY);
+        if (Array.isArray(storedMeals) && storedMeals.length > 0) {
+          setMeals(storedMeals);
         } else {
           const initialSeed = getInitialSeedMeals(todayStr);
           setMeals(initialSeed);
-          localStorage.setItem(LOCAL_STORAGE_MEALS_KEY, JSON.stringify(initialSeed));
+          void setStorageItem(LOCAL_STORAGE_MEALS_KEY, initialSeed);
         }
       } catch (err) {
-        console.error("[NutriTrack AI] meals localStorage okuma hatası:", err);
+        console.error("[NutriTrack AI] meals storage okuma hatası:", err);
         setMeals(getInitialSeedMeals(todayStr));
       }
 
-      // Hydrate Activities
+      // 3. Hydrate Activities
       try {
-        const storedActs = localStorage.getItem(LOCAL_STORAGE_ACTIVITIES_KEY);
-        if (storedActs) {
-          const parsed = JSON.parse(storedActs) as ExerciseLog[];
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            setActivities(parsed);
-          } else {
-            const initialActs = getInitialSeedActivities(todayStr);
-            setActivities(initialActs);
-            localStorage.setItem(LOCAL_STORAGE_ACTIVITIES_KEY, JSON.stringify(initialActs));
-          }
+        const storedActs = await getStorageItem<ExerciseLog[]>(LOCAL_STORAGE_ACTIVITIES_KEY);
+        if (Array.isArray(storedActs) && storedActs.length > 0) {
+          setActivities(storedActs);
         } else {
           const initialActs = getInitialSeedActivities(todayStr);
           setActivities(initialActs);
-          localStorage.setItem(LOCAL_STORAGE_ACTIVITIES_KEY, JSON.stringify(initialActs));
+          void setStorageItem(LOCAL_STORAGE_ACTIVITIES_KEY, initialActs);
         }
       } catch (err) {
-        console.error("[NutriTrack AI] activities localStorage okuma hatası:", err);
+        console.error("[NutriTrack AI] activities storage okuma hatası:", err);
         setActivities(getInitialSeedActivities(todayStr));
       }
 
-      // Hydrate Daily Logs (Steps & Water)
+      // 4. Hydrate Daily Logs (Steps & Water)
       try {
-        const storedLogs = localStorage.getItem(LOCAL_STORAGE_DAILY_LOGS_KEY);
-        if (storedLogs) {
-          const parsed = JSON.parse(storedLogs) as Record<string, DailyLog>;
-          if (parsed && typeof parsed === "object") {
-            setDailyLogs(parsed);
-          } else {
-            const initialLogs = getInitialSeedDailyLogs(todayStr);
-            setDailyLogs(initialLogs);
-            localStorage.setItem(LOCAL_STORAGE_DAILY_LOGS_KEY, JSON.stringify(initialLogs));
-          }
+        const storedLogs = await getStorageItem<Record<string, DailyLog>>(LOCAL_STORAGE_DAILY_LOGS_KEY);
+        if (storedLogs && typeof storedLogs === "object") {
+          setDailyLogs(storedLogs);
         } else {
           const initialLogs = getInitialSeedDailyLogs(todayStr);
           setDailyLogs(initialLogs);
-          localStorage.setItem(LOCAL_STORAGE_DAILY_LOGS_KEY, JSON.stringify(initialLogs));
+          void setStorageItem(LOCAL_STORAGE_DAILY_LOGS_KEY, initialLogs);
         }
       } catch (err) {
-        console.error("[NutriTrack AI] dailyLogs localStorage okuma hatası:", err);
+        console.error("[NutriTrack AI] dailyLogs storage okuma hatası:", err);
         setDailyLogs(getInitialSeedDailyLogs(todayStr));
       } finally {
         setIsHydrated(true);
       }
 
-      // Silent cloud synchronization after local hydration
+      // 5. Silent cloud synchronization after local hydration
       if (isFirebaseConfigured()) {
         void refreshFromCloud();
       }
-    });
+    }
+
+    void hydrateStorage();
+
+    return () => {
+      isCancelled = true;
+    };
   }, [refreshFromCloud]);
 
   // Meal Actions
