@@ -12,9 +12,12 @@ import {
   Image as ImageIcon,
   CheckCircle2,
   Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import { CameraModal } from "./CameraModal";
 import { compressImage } from "@/lib/utils/image-compression";
+import { analyzeImageQuality, type ImageQualityResult } from "@/lib/utils/image-quality";
+import { cn } from "@/lib/utils/cn";
 
 export interface ImageUploaderProps {
   onImageSelected?: (file: File, previewUrl: string) => void;
@@ -36,6 +39,7 @@ export function ImageUploader({
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
   const [isOptimizing, setIsOptimizing] = useState<boolean>(false);
   const [isCameraModalOpen, setIsCameraModalOpen] = useState<boolean>(false);
+  const [qualityResult, setQualityResult] = useState<ImageQualityResult | null>(null);
 
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const fallbackCameraInputRef = useRef<HTMLInputElement>(null);
@@ -89,6 +93,15 @@ export function ImageUploader({
       setSelectedFile(optimizedFile);
       setPreviewUrl(newUrl);
 
+      // Instant pre-upload image quality evaluation (Roadmap Step 3)
+      try {
+        const quality = await analyzeImageQuality(optimizedFile);
+        setQualityResult(quality);
+      } catch (qErr) {
+        console.warn("[NutriTrack AI] Kalite analizi hatası:", qErr);
+        setQualityResult(null);
+      }
+
       if (onImageSelected) {
         onImageSelected(optimizedFile, newUrl);
       }
@@ -99,6 +112,13 @@ export function ImageUploader({
       const newUrl = URL.createObjectURL(rawFile);
       setSelectedFile(rawFile);
       setPreviewUrl(newUrl);
+
+      try {
+        const quality = await analyzeImageQuality(rawFile);
+        setQualityResult(quality);
+      } catch {
+        setQualityResult(null);
+      }
 
       if (onImageSelected) {
         onImageSelected(rawFile, newUrl);
@@ -145,6 +165,7 @@ export function ImageUploader({
     setSelectedFile(null);
     setPreviewUrl(null);
     setErrorMessage(null);
+    setQualityResult(null);
   };
 
   /**
@@ -327,10 +348,30 @@ export function ImageUploader({
                   <Sparkles className="w-3.5 h-3.5 text-primary" />
                   Vision Core Hazır
                 </span>
-                <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary-light/90 text-primary text-xs font-bold shadow-xs">
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  Optimize Edildi
-                </span>
+                {qualityResult ? (
+                  qualityResult.isAcceptable ? (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 text-xs font-bold backdrop-blur-md shadow-xs border border-emerald-500/30">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                      <span>Kalite İdeal (%{qualityResult.score})</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-500/25 text-amber-900 dark:text-amber-200 text-xs font-bold backdrop-blur-md shadow-xs border border-amber-500/40 animate-pulse">
+                      <AlertTriangle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400" />
+                      <span>
+                        {qualityResult.status === "too_dark"
+                          ? "Karanlık"
+                          : qualityResult.status === "too_bright"
+                          ? "Aşırı Parlak"
+                          : "Bulanık"} (%{qualityResult.score})
+                      </span>
+                    </span>
+                  )
+                ) : (
+                  <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-primary-light/90 text-primary text-xs font-bold shadow-xs">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    Optimize Edildi
+                  </span>
+                )}
               </div>
 
               {/* Laser Scanning Effect Accent */}
@@ -369,6 +410,64 @@ export function ImageUploader({
             </div>
           </div>
 
+          {/* Pre-Upload Quality Guard Warning Card (Roadmap Step 3) */}
+          {qualityResult && !qualityResult.isAcceptable && (
+            <div
+              role="alert"
+              className="p-4 sm:p-5 rounded-3xl bg-gradient-to-br from-amber-500/15 via-surface-container to-surface-container-low border border-amber-500/35 text-app-text-main space-y-3 animate-fade-in shadow-xs"
+            >
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-500/20 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0 mt-0.5">
+                  <AlertTriangle className="w-5 h-5" />
+                </div>
+                <div className="space-y-1 flex-1">
+                  <div className="flex items-center gap-2">
+                    <h4 className="text-xs sm:text-sm font-extrabold text-app-text-main">
+                      {qualityResult.status === "too_dark"
+                        ? "Işık Yetersiz Görünüyor"
+                        : qualityResult.status === "too_bright"
+                        ? "Görsel Aşırı Parlak"
+                        : "Fotoğraf Bulanık / Titrek Olabilir"}
+                    </h4>
+                    <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                      Kalite: %{qualityResult.score}
+                    </span>
+                  </div>
+                  <p className="text-xs text-app-text-muted leading-relaxed">
+                    Görsel biraz karanlık/bulanık görünüyor. Yapay zekânın doğru tahmin yapabilmesi ve günlük kotanızın boşa gitmemesi için daha aydınlık bir fotoğraf deneyebilirsiniz.
+                  </p>
+                </div>
+              </div>
+
+              {/* Non-blocking Action Buttons: Re-take or Proceed anyway */}
+              <div className="flex flex-wrap items-center gap-2.5 pt-2 border-t border-amber-500/20">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={triggerCamera}
+                  leftIcon={<Camera className="w-3.5 h-3.5 text-primary" />}
+                  className="bg-white/80 dark:bg-surface-container font-bold text-xs"
+                >
+                  Yeniden Çek
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={triggerGallery}
+                  leftIcon={<RefreshCw className="w-3.5 h-3.5 text-app-text-muted" />}
+                  className="text-xs"
+                >
+                  Galeriden Başka Seç
+                </Button>
+                <span className="text-[11px] text-app-text-muted ml-auto font-medium">
+                  veya aşağıdaki butondan yine de devam edebilirsiniz
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* Primary CTA Button */}
           <Button
             variant="primary"
@@ -376,9 +475,16 @@ export function ImageUploader({
             isLoading={isLoading}
             onClick={() => onAnalyzeRequest?.(selectedFile)}
             leftIcon={<Sparkles className="w-5 h-5" />}
-            className="w-full text-base font-bold shadow-md shadow-primary/20"
+            className={cn(
+              "w-full text-base font-bold shadow-md shadow-primary/20",
+              qualityResult && !qualityResult.isAcceptable && "bg-amber-600 hover:bg-amber-700 border-amber-700/50 shadow-amber-600/20 text-white"
+            )}
           >
-            {isLoading ? "Yapay Zekâ İnceliyor..." : "Yemeği Analiz Et"}
+            {isLoading
+              ? "Yapay Zekâ İnceliyor..."
+              : qualityResult && !qualityResult.isAcceptable
+              ? "Yine de Analiz Et"
+              : "Yemeği Analiz Et"}
           </Button>
         </div>
       )}

@@ -3,6 +3,8 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { X, RefreshCw, AlertCircle, Sparkles, Image as ImageIcon } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { analyzeAmbientLight, type AmbientLightResult } from "@/lib/utils/image-quality";
+import { cn } from "@/lib/utils/cn";
 
 export interface CameraModalProps {
   isOpen: boolean;
@@ -24,6 +26,7 @@ export function CameraModal({
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [isLoadingCamera, setIsLoadingCamera] = useState<boolean>(true);
   const [isCapturing, setIsCapturing] = useState<boolean>(false);
+  const [ambientLight, setAmbientLight] = useState<AmbientLightResult | null>(null);
 
   // Stop camera stream cleanly
   const stopStream = useCallback(() => {
@@ -110,6 +113,23 @@ export function CameraModal({
       stopStream();
     };
   }, [isOpen, startCamera, stopStream]);
+
+  // Ambient light live analyzer for viewfinder guidance (Roadmap Step 3)
+  useEffect(() => {
+    if (!isOpen || isLoadingCamera || cameraError) {
+      setAmbientLight(null);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      if (videoRef.current && videoRef.current.readyState >= 2) {
+        const light = analyzeAmbientLight(videoRef.current);
+        setAmbientLight(light);
+      }
+    }, 400);
+
+    return () => clearInterval(interval);
+  }, [isOpen, isLoadingCamera, cameraError]);
 
   // Flip between rear and front camera
   const handleToggleFacingMode = () => {
@@ -216,6 +236,40 @@ export function CameraModal({
             isLoadingCamera || cameraError ? "opacity-0" : "opacity-100"
           }`}
         />
+
+        {/* Real-time Viewfinder Ambient Light Indicator (Roadmap Step 3) */}
+        {ambientLight && !cameraError && !isLoadingCamera && (
+          <div className="absolute top-4 left-4 z-20 pointer-events-none animate-fade-in">
+            <div
+              className={cn(
+                "flex items-center gap-2 px-3 py-1.5 rounded-full backdrop-blur-md text-xs font-bold shadow-lg border transition-all duration-300",
+                ambientLight.status === "low_light"
+                  ? "bg-amber-950/80 border-amber-500/50 text-amber-300"
+                  : ambientLight.status === "overexposed"
+                  ? "bg-rose-950/80 border-rose-500/50 text-rose-300"
+                  : "bg-emerald-950/80 border-emerald-500/50 text-emerald-300"
+              )}
+            >
+              <span
+                className={cn(
+                  "w-2 h-2 rounded-full",
+                  ambientLight.status === "low_light"
+                    ? "bg-amber-400 animate-ping"
+                    : ambientLight.status === "overexposed"
+                    ? "bg-rose-400 animate-ping"
+                    : "bg-emerald-400"
+                )}
+              />
+              <span>
+                {ambientLight.status === "low_light"
+                  ? "💡 Işık Yetersiz"
+                  : ambientLight.status === "overexposed"
+                  ? "☀️ Aşırı Parlak"
+                  : "✨ Işık İdeal"}
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Viewfinder Target Framing Grid */}
         {!cameraError && !isLoadingCamera && (
