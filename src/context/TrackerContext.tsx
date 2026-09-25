@@ -26,6 +26,12 @@ import {
   setStorageItem,
   migrateFromLocalStorage,
 } from "@/lib/storage/indexed-db";
+import {
+  subscribeToNetworkStatus,
+  processOfflineQueue,
+  getPendingCount,
+  isOnline,
+} from "@/lib/network/offline-queue";
 
 export interface MacroGoals {
   protein: number;
@@ -487,6 +493,44 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
     },
     [selectedDate, persistMeals, showToast]
   );
+
+  // Stability Roadmap Step 2: Background Offline Queue Auto-Flusher when device reconnects to internet
+  useEffect(() => {
+    let isMounted = true;
+
+    const handleNetworkChange = async (online: boolean) => {
+      if (!online || !isMounted) return;
+      try {
+        const count = await getPendingCount();
+        if (count > 0 && isMounted) {
+          showToast("İnternet bağlantısı sağlandı. Kuyruktaki yemekler analiz ediliyor...", "info");
+          await processOfflineQueue(
+            (newMeal) => {
+              if (isMounted) {
+                addMeal(newMeal);
+                showToast(`"${newMeal.name}" arka planda analiz edildi ve günlüğe eklendi! 🎉`, "success");
+              }
+            },
+            (failedItem, err) => {
+              console.warn(`[NutriTrack Offline Queue] Item ${failedItem.id} error:`, err);
+            }
+          );
+        }
+      } catch (err) {
+        console.warn("[NutriTrack AI] Offline queue check error:", err);
+      }
+    };
+
+    if (isOnline()) {
+      void handleNetworkChange(true);
+    }
+
+    const unsubscribe = subscribeToNetworkStatus(handleNetworkChange);
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, [addMeal, showToast]);
 
   const deleteMeal = useCallback(
     (mealId: string) => {

@@ -10,9 +10,10 @@
  * 3. Automatic migration utility for existing users' localStorage data.
  */
 
-const DB_NAME = "NutriTrackDB";
-const DB_VERSION = 1;
-const STORE_NAME = "app_state";
+export const DB_NAME = "NutriTrackDB";
+export const DB_VERSION = 2;
+export const STORE_NAME = "app_state";
+export const PENDING_ANALYSES_STORE = "pending_analyses";
 
 let dbPromise: Promise<IDBDatabase> | null = null;
 const inMemoryStore = new Map<string, unknown>();
@@ -30,7 +31,7 @@ function getLocalStorage(): Storage | null {
   return null;
 }
 
-function isIndexedDBAvailable(): boolean {
+export function isIndexedDBAvailable(): boolean {
   return (
     typeof window !== "undefined" &&
     typeof indexedDB !== "undefined" &&
@@ -38,7 +39,7 @@ function isIndexedDBAvailable(): boolean {
   );
 }
 
-function getDatabase(): Promise<IDBDatabase> {
+export function getDatabase(): Promise<IDBDatabase> {
   if (!isIndexedDBAvailable()) {
     return Promise.reject(new Error("IndexedDB is not supported in this environment"));
   }
@@ -55,6 +56,9 @@ function getDatabase(): Promise<IDBDatabase> {
         const db = (event.target as IDBOpenDBRequest).result;
         if (!db.objectStoreNames.contains(STORE_NAME)) {
           db.createObjectStore(STORE_NAME);
+        }
+        if (!db.objectStoreNames.contains(PENDING_ANALYSES_STORE)) {
+          db.createObjectStore(PENDING_ANALYSES_STORE, { keyPath: "id" });
         }
       };
 

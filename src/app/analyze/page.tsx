@@ -26,6 +26,15 @@ import { useTracker } from "@/context";
 import { cn } from "@/lib/utils/cn";
 import { createThumbnail } from "@/lib/utils/image-compression";
 import {
+  enqueuePendingAnalysis,
+  getPendingAnalyses,
+  isOnline,
+  subscribeToNetworkStatus,
+  sendMealAnalysisWithRetry,
+  fileToDataUrl,
+  processOfflineQueue,
+} from "@/lib/network/offline-queue";
+import {
   ArrowLeft,
   Sparkles,
   CheckCircle2,
@@ -38,6 +47,9 @@ import {
   Check,
   ShieldAlert,
   KeyRound,
+  WifiOff,
+  Clock,
+  CloudOff,
 } from "lucide-react";
 
 export default function AnalyzeMealPage() {
@@ -79,6 +91,12 @@ export default function AnalyzeMealPage() {
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
 
+  // Stability Roadmap Step 2: Offline Analysis Queue & Network Resilience State
+  const [isQueuedOffline, setIsQueuedOffline] = useState<boolean>(false);
+  const [isNetworkRetrying, setIsNetworkRetrying] = useState<boolean>(false);
+  const [retryAttempt, setRetryAttempt] = useState<number>(1);
+  const [isDeviceOnline, setIsDeviceOnline] = useState<boolean>(true);
+
   // Hydrate local API key & fetch quota on page mount
   useEffect(() => {
     let isMounted = true;
@@ -115,6 +133,51 @@ export default function AnalyzeMealPage() {
     };
   }, []);
 
+  // Listen to network status changes & automatically trigger queue flush when back online
+  useEffect(() => {
+    let isMounted = true;
+    setIsDeviceOnline(isOnline());
+
+    const unsubscribe = subscribeToNetworkStatus(async (online) => {
+      if (!isMounted) return;
+      setIsDeviceOnline(online);
+
+      if (online) {
+        try {
+          const queue = await getPendingAnalyses();
+          if (queue.length > 0 && isMounted) {
+            tracker.showToast(
+              "İnternet bağlantısı sağlandı. Kuyruktaki yemekler analiz ediliyor...",
+              "info"
+            );
+
+            await processOfflineQueue(
+              (newMeal) => {
+                if (!isMounted) return;
+                tracker.addMeal(newMeal);
+                tracker.showToast(
+                  `"${newMeal.name}" Gemini ile analiz edildi ve günlüğe eklendi! 🎉`,
+                  "success"
+                );
+                setIsQueuedOffline(false);
+              },
+              (failedItem, err) => {
+                console.warn(`[NutriTrack] Queue item ${failedItem.id} error:`, err);
+              }
+            );
+          }
+        } catch (err) {
+          console.warn("[NutriTrack] Online queue sync error:", err);
+        }
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      unsubscribe();
+    };
+  }, [tracker]);
+
   const mealTypeOptions: { id: MealType; label: string }[] = [
     { id: "breakfast", label: "Kahvaltı" },
     { id: "lunch", label: "Öğle Yemeği" },
@@ -134,43 +197,103 @@ export default function AnalyzeMealPage() {
     setSelectedFile(file);
     setIsAnalyzing(true);
     setApiError(null);
+    setIsQueuedOffline(false);
+    setIsNetworkRetrying(false);
 
-    try {
-      const formData = new FormData();
-      formData.append("image", file);
-      formData.append("mealType", mealType);
-
-      const headers: HeadersInit = {};
-      const activeKey = customApiKey || (typeof window !== "undefined" ? localStorage.getItem("nutritrack_custom_gemini_key") : "");
-      if (activeKey) {
-        headers["x-gemini-key"] = activeKey.trim();
+    let currentPreview = previewUrl;
+    if (!currentPreview) {
+      try {
+        currentPreview = await fileToDataUrl(file);
+        setPreviewUrl(currentPreview);
+      } catch {
+        // fallback
       }
+    }
 
-      const response = await fetch("/api/analyze-meal", {
-        method: "POST",
-        headers,
-        body: formData,
+    // 1. If currently offline upfront:
+    if (!isOnline()) {
+      try {
+        const dataUrl = currentPreview || (await fileToDataUrl(file));
+        await enqueuePendingAnalysis({
+          imageData: dataUrl,
+          mealType,
+          imageName: file.name,
+          imageType: file.type,
+          customApiKey,
+        });
+        setIsQueuedOffline(true);
+        tracker.showToast(
+          "İnternet bağlantısı kesildi. Yemeğiniz kuyruğa alındı 📡",
+          "info"
+        );
+      } catch (queueErr) {
+        console.error("[NutriTrack] Queue error:", queueErr);
+        setApiError("İnternet bağlantısı yok ve kuyruğa eklenemedi.");
+      } finally {
+        setIsAnalyzing(false);
+      }
+      return;
+    }
+
+    // 2. Online: Perform analysis with 2 silent exponential backoff retries (1.5s, 3s)
+    try {
+      const resJson = await sendMealAnalysisWithRetry({
+        file,
+        mealType,
+        customApiKey,
+        maxRetries: 2,
+        delays: [1500, 3000],
+        onRetry: (attempt) => {
+          setIsNetworkRetrying(true);
+          setRetryAttempt(attempt);
+        },
       });
 
-      const resJson = await response.json();
+      setIsNetworkRetrying(false);
 
-      if (resJson.error?.code === "MISSING_GEMINI_KEY") {
-        setIsKeyModalOpen(true);
-        setApiError(resJson.error.message);
-        return;
-      }
+      if (!resJson.success) {
+        if (resJson.error?.code === "MISSING_GEMINI_KEY") {
+          setIsKeyModalOpen(true);
+          setApiError(resJson.error.message);
+          return;
+        }
 
-      if (response.status === 429 || resJson.error?.code?.includes("LIMIT_EXCEEDED")) {
-        setIsQuotaExceeded(true);
-        setRemainingQuota(0);
-        setQuotaExceededMessage(
-          resJson.error?.message ||
-            "Bugünkü 3 ücretsiz AI analiz hakkınızı kullandınız. Yarın tekrar deneyebilirsiniz."
-        );
-        return;
-      }
+        if (
+          resJson.error?.code === "RATE_LIMIT_EXCEEDED" ||
+          resJson.remainingLimit === 0
+        ) {
+          setIsQuotaExceeded(true);
+          setRemainingQuota(0);
+          setQuotaExceededMessage(
+            resJson.error?.message ||
+              "Bugünkü 3 ücretsiz AI analiz hakkınızı kullandınız. Yarın tekrar deneyebilirsiniz."
+          );
+          return;
+        }
 
-      if (!response.ok || !resJson.success) {
+        // If network failed after retries or 5xx or offline error:
+        if (
+          resJson.error?.code === "NETWORK_FAILED_AFTER_RETRIES" ||
+          resJson.error?.code === "OFFLINE_NETWORK_ERROR" ||
+          resJson.error?.code === "SERVER_5XX_ERROR" ||
+          !isOnline()
+        ) {
+          const dataUrl = currentPreview || (await fileToDataUrl(file));
+          await enqueuePendingAnalysis({
+            imageData: dataUrl,
+            mealType,
+            imageName: file.name,
+            imageType: file.type,
+            customApiKey,
+          });
+          setIsQueuedOffline(true);
+          tracker.showToast(
+            "İnternet bağlantısı kesildi. Yemeğiniz kuyruğa alındı 📡",
+            "info"
+          );
+          return;
+        }
+
         throw new Error(
           resJson.error?.message ||
             "Yemek analiz edilemedi. Lütfen daha net veya aydınlık bir fotoğraf deneyin."
@@ -210,17 +333,34 @@ export default function AnalyzeMealPage() {
       });
 
       setEditableItems(formattedItems);
-      // Seamlessly activate review mode
       setIsReviewMode(true);
+      setIsQueuedOffline(false);
     } catch (err: unknown) {
       console.error("[NutriTrack AI] Analiz hatası:", err);
-      setApiError(
-        err instanceof Error
-          ? err.message
-          : "Yemek analiz edilemedi. Lütfen daha net veya aydınlık bir fotoğraf deneyin."
-      );
+      if (!isOnline() || (err instanceof Error && err.message.includes("fetch"))) {
+        const dataUrl = currentPreview || (await fileToDataUrl(file));
+        await enqueuePendingAnalysis({
+          imageData: dataUrl,
+          mealType,
+          imageName: file.name,
+          imageType: file.type,
+          customApiKey,
+        });
+        setIsQueuedOffline(true);
+        tracker.showToast(
+          "İnternet bağlantısı kesildi. Yemeğiniz kuyruğa alındı 📡",
+          "info"
+        );
+      } else {
+        setApiError(
+          err instanceof Error
+            ? err.message
+            : "Yemek analiz edilemedi. Lütfen daha net veya aydınlık bir fotoğraf deneyin."
+        );
+      }
     } finally {
       setIsAnalyzing(false);
+      setIsNetworkRetrying(false);
     }
   };
 
@@ -256,6 +396,7 @@ export default function AnalyzeMealPage() {
     });
     setIsReviewMode(true);
     setIsQuotaExceeded(false);
+    setIsQueuedOffline(false);
   };
 
   const handleResetAnalysis = () => {
@@ -264,6 +405,8 @@ export default function AnalyzeMealPage() {
     setAnalysisResult(null);
     setApiError(null);
     setIsReviewMode(false);
+    setIsQueuedOffline(false);
+    setIsNetworkRetrying(false);
     setEditableItems([]);
   };
 
@@ -437,6 +580,17 @@ export default function AnalyzeMealPage() {
                     : `Günlük Kalan AI Analiz: ${remainingQuota !== null ? remainingQuota : dailyLimit} / ${dailyLimit}`}
                 </span>
               </div>
+
+              {/* Device Offline Warning Badge */}
+              {!isDeviceOnline && (
+                <div
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/15 border border-amber-500/30 text-amber-700 dark:text-amber-300 text-xs font-bold animate-pulse select-none"
+                  title="Cihaz çevrimdışı. Çektiğiniz yemekler güvenle kuyruğa alınıp internet geldiğinde analiz edilecek."
+                >
+                  <WifiOff className="w-3.5 h-3.5 text-amber-500 shrink-0" />
+                  <span>Çevrimdışı Mod</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -571,10 +725,121 @@ export default function AnalyzeMealPage() {
             </div>
           )}
 
-          {/* Dynamic Content: Uploader vs Loading vs Review Mode */}
+          {/* Dynamic Content: Uploader vs Loading vs Offline Queued vs Review Mode */}
           {isAnalyzing ? (
-            /* Skeleton Loading State */
-            <AnalysisLoadingState previewUrl={previewUrl} />
+            /* Skeleton Loading State with Silent Retry Notice */
+            <div className="space-y-4">
+              {isNetworkRetrying && (
+                <div
+                  role="status"
+                  aria-live="polite"
+                  className="p-4 rounded-2xl bg-amber-500/15 border border-amber-500/30 text-amber-800 dark:text-amber-200 flex items-center gap-3 text-xs font-bold animate-pulse shadow-xs"
+                >
+                  <RefreshCw className="w-4 h-4 animate-spin text-amber-600 dark:text-amber-400 shrink-0" />
+                  <div className="space-y-0.5 flex-1">
+                    <p className="font-extrabold text-app-text-main">
+                      Ağ gecikmesi tespit edildi ({retryAttempt}/2)
+                    </p>
+                    <p className="text-[11px] text-app-text-muted font-normal">
+                      İstek arka planda otomatik yeniden deneniyor. Lütfen bekleyin...
+                    </p>
+                  </div>
+                </div>
+              )}
+              <AnalysisLoadingState previewUrl={previewUrl} />
+            </div>
+          ) : isQueuedOffline ? (
+            /* Stability Roadmap Step 2: Yellow/Blue Offline Queued Experience Card */
+            <div
+              role="status"
+              aria-live="polite"
+              className="p-6 sm:p-7 rounded-3xl bg-gradient-to-br from-amber-500/15 via-sky-500/10 to-surface-container border-2 border-sky-400/40 dark:border-sky-500/30 text-app-text-main space-y-5 animate-fade-in shadow-md"
+            >
+              <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                <div className="flex items-start gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-amber-500/25 to-sky-500/25 text-sky-600 dark:text-sky-300 border border-sky-500/30 flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                    <WifiOff className="w-6 h-6 text-amber-500 animate-pulse" />
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-base sm:text-lg font-extrabold text-app-text-main">
+                        Çevrimdışı Analiz Kuyruğu
+                      </h3>
+                      <span className="px-2.5 py-0.5 text-[11px] font-bold rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        Beklemede
+                      </span>
+                    </div>
+                    <p className="text-xs sm:text-sm font-semibold text-app-text-main leading-relaxed">
+                      İnternet bağlantısı kesildi. Yemeğiniz kuyruğa alındı; bağlantı geldiğinde otomatik analiz edilecek.
+                    </p>
+                    <p className="text-[11px] text-app-text-muted leading-relaxed">
+                      Fotoğrafınız cihazınızın IndexedDB depolama alanında güvenle saklanmaktadır. Bağlantı yeniden kurulduğunda otomatik olarak Gemini 3.6 Flash ile işlenip günlüğünüze eklenecektir.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Preserved Photo Preview Banner */}
+              {previewUrl && (
+                <div className="relative w-full h-48 sm:h-56 rounded-2xl overflow-hidden bg-surface-container-high border border-surface-container shadow-xs">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={previewUrl}
+                    alt="Kuyruktaki Yemek"
+                    className="w-full h-full object-cover filter saturate-90"
+                  />
+                  <div className="absolute top-3 left-3 bg-surface-container-lowest/90 backdrop-blur-md px-3 py-1.5 rounded-full shadow-sm flex items-center gap-2 text-xs font-bold text-app-text-main border border-surface-container">
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-ping" />
+                    <span>Kuyrukta Güvenle Bekliyor</span>
+                  </div>
+                  <div className="absolute bottom-3 right-3 bg-app-text-dark/85 backdrop-blur-md px-3 py-1.5 rounded-full text-white text-xs font-semibold flex items-center gap-1.5 shadow-md">
+                    <Utensils className="w-3.5 h-3.5 text-primary-light" />
+                    <span>
+                      {mealType === "breakfast"
+                        ? "Kahvaltı"
+                        : mealType === "lunch"
+                        ? "Öğle Yemeği"
+                        : mealType === "dinner"
+                        ? "Akşam Yemeği"
+                        : "Ara Öğün"}
+                    </span>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex flex-wrap items-center gap-3 pt-2 border-t border-surface-container">
+                <Button
+                  variant="primary"
+                  size="md"
+                  onClick={() => {
+                    if (selectedFile) {
+                      handleStartAnalysis(selectedFile);
+                    }
+                  }}
+                  leftIcon={<RefreshCw className="w-4 h-4" />}
+                  className="shadow-sm"
+                >
+                  Bağlantıyı Yeniden Kontrol Et
+                </Button>
+                <Button
+                  variant="outline"
+                  size="md"
+                  onClick={handleStartManualMeal}
+                  leftIcon={<Utensils className="w-4 h-4" />}
+                >
+                  Beklemeden Manuel Ekle
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="md"
+                  onClick={handleResetAnalysis}
+                >
+                  İptal Et &amp; Yeni Fotoğraf
+                </Button>
+              </div>
+            </div>
           ) : isReviewMode && analysisResult ? (
             /* Phase 5: Meal Review & Editing Form */
             <div className="space-y-6 animate-fade-in">
