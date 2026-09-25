@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans } from "next/font/google";
 import { TrackerProvider } from "@/context";
+import { ServiceWorkerRegister } from "@/components";
 import "./globals.css";
 
 const plusJakartaSans = Plus_Jakarta_Sans({
@@ -40,7 +41,10 @@ export default function RootLayout({
   return (
     <html lang="tr" className={`${plusJakartaSans.variable} h-full`}>
       <body className="min-h-full flex flex-col font-sans antialiased bg-surface text-app-text selection:bg-primary-light selection:text-primary">
-        <TrackerProvider>{children}</TrackerProvider>
+        <TrackerProvider>
+          <ServiceWorkerRegister />
+          {children}
+        </TrackerProvider>
       </body>
     </html>
   );

@@ -45,4 +45,5 @@ export { WeeklyStatCards, type WeeklyStatCardsProps } from "./weekly/WeeklyStatC
 export { CalorieTrendChart, type CalorieTrendChartProps } from "./weekly/CalorieTrendChart";
 export { ActivityTrendChart, type ActivityTrendChartProps } from "./weekly/ActivityTrendChart";
 export { WaterTrendChart, type WaterTrendChartProps } from "./weekly/WaterTrendChart";
-
+// PWA Components
+export { ServiceWorkerRegister } from "./pwa/ServiceWorkerRegister";
