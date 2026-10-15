@@ -7,7 +7,7 @@ import { Container } from "./Container";
 import { useTracker } from "@/context";
 import { formatDisplayDate } from "@/lib/utils/date";
 import { cn } from "@/lib/utils/cn";
-import { Sparkles, ChevronLeft, ChevronRight, Calendar, User, Cloud, RefreshCw, AlertCircle, Shield } from "lucide-react";
+import { Sparkles, ChevronLeft, ChevronRight, Calendar, User, Cloud, RefreshCw, AlertCircle, Shield, Bot } from "lucide-react";
 
 export interface HeaderProps {
   currentDateText?: string;
@@ -55,6 +55,7 @@ export function Header({
     { id: "aktivite", label: "Aktivite & Su", href: "/activity" },
     { id: "haftalik", label: "Haftalık Özet", href: "/weekly" },
     { id: "analiz", label: "AI Analiz", href: "/analyze" },
+    { id: "koc", label: "🤖 AI Koç", href: "/coach" },
   ];
 
   return (

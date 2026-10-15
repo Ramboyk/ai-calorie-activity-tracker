@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Flame, BarChart3, User, Camera } from "lucide-react";
+import { LayoutDashboard, Flame, BarChart3, Camera, Bot } from "lucide-react";
 
 export interface BottomNavProps {
   onCaptureClick?: () => void;
@@ -11,7 +11,6 @@ export interface BottomNavProps {
 
 export function BottomNav({ onCaptureClick }: BottomNavProps) {
   const pathname = usePathname();
-  const [activeTab, setActiveTab] = useState<string>("bugun");
 
   const isAnalyzePage = pathname === "/analyze";
 
@@ -20,7 +19,7 @@ export function BottomNav({ onCaptureClick }: BottomNavProps) {
       aria-label="Mobil Alt Navigasyon"
       className="fixed bottom-0 inset-x-0 z-40 bg-surface-container-lowest/95 backdrop-blur-xl border-t border-surface-container shadow-[0_-4px_20px_rgba(19,27,46,0.05)] pb-[env(safe-area-inset-bottom,0px)] md:hidden"
     >
-      <div className="relative flex items-center justify-around h-16 px-2 max-w-lg mx-auto">
+      <div className="relative flex items-center justify-around h-16 px-1 max-w-lg mx-auto">
         {/* Tab 1: Bugün */}
         <Link
           href="/"
@@ -82,20 +81,20 @@ export function BottomNav({ onCaptureClick }: BottomNavProps) {
           <span className="text-[10px] mt-1">Haftalık</span>
         </Link>
 
-        {/* Tab 4: Profil */}
-        <button
-          type="button"
-          onClick={() => setActiveTab("profil")}
-          aria-label="Kullanıcı Profili"
-          className={`flex flex-col items-center justify-center min-w-[44px] w-14 h-12 rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-95 ${
-            activeTab === "profil" && !isAnalyzePage
+        {/* Tab 4: AI Koç */}
+        <Link
+          href="/coach"
+          aria-label="AI Beslenme Koçu"
+          aria-current={pathname === "/coach" ? "page" : undefined}
+          className={`flex flex-col items-center justify-center min-w-[44px] w-14 h-12 rounded-xl transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+            pathname === "/coach"
               ? "text-primary font-bold"
               : "text-app-text-muted hover:text-app-text-main"
           }`}
         >
-          <User className="w-5 h-5" />
-          <span className="text-[10px] mt-1">Profil</span>
-        </button>
+          <Bot className="w-5 h-5" />
+          <span className="text-[10px] mt-1">AI Koç</span>
+        </Link>
       </div>
     </nav>
   );
