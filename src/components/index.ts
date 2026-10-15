@@ -53,3 +53,7 @@ export { ActivityTrendChart, type ActivityTrendChartProps } from "./weekly/Activ
 export { WaterTrendChart, type WaterTrendChartProps } from "./weekly/WaterTrendChart";
 // PWA Components
 export { ServiceWorkerRegister } from "./pwa/ServiceWorkerRegister";
+
+// Gamification Components
+export { StreakBadgeCard, type StreakBadgeCardProps } from "./gamification/StreakBadgeCard";
+export { BadgesModal, type BadgesModalProps } from "./gamification/BadgesModal";

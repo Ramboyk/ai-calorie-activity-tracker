@@ -2,3 +2,4 @@
 export { cn } from "./utils/cn";
 export * from "./network/offline-queue";
 export * from "./utils/image-quality";
+export * from "./gamification/streak-manager";

@@ -21,6 +21,7 @@ import {
 } from "@/lib/firebase/firestore";
 import { isFirebaseConfigured } from "@/lib/firebase/client";
 import { ToastContainer, type ToastItem, type ToastType } from "@/components/ui/Toast";
+import { BadgesModal } from "@/components/gamification/BadgesModal";
 import {
   getStorageItem,
   setStorageItem,
@@ -40,8 +41,18 @@ import {
   calculateWeightProgress,
   getLatestWeightLog as getLatestWeightLogUtil,
 } from "@/lib/storage/weight-tracker";
+import {
+  type GamificationState,
+  type UserLevelInfo,
+  type GamificationContext,
+  LOCAL_STORAGE_GAMIFICATION_KEY,
+  getInitialSeedGamification,
+  calculateStreakOnAction,
+  evaluateBadges,
+  calculateUserLevel,
+} from "@/lib/gamification/streak-manager";
 
-export type { WeightLog, WeightProgressSummary };
+export type { WeightLog, WeightProgressSummary, GamificationState, UserLevelInfo };
 
 export interface MacroGoals {
   protein: number;
@@ -102,6 +113,12 @@ export interface TrackerContextType {
   deleteWeightLog: (id: string) => void;
   getLatestWeight: () => WeightLog | null;
   getWeightProgress: () => WeightProgressSummary | null;
+  // Gamification & Streak Actions & Selectors
+  gamification: GamificationState;
+  userLevel: UserLevelInfo;
+  isBadgesModalOpen: boolean;
+  openBadgesModal: () => void;
+  closeBadgesModal: () => void;
   // Weekly Insights Selector
   getWeeklyStats: () => WeeklyStats;
   // Cloud Sync
@@ -333,6 +350,18 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
     isFirebaseConfigured() ? "synced" : "local"
   );
   const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const [gamification, setGamification] = useState<GamificationState>(() =>
+    getInitialSeedGamification()
+  );
+  const [isBadgesModalOpen, setIsBadgesModalOpen] = useState<boolean>(false);
+
+  const openBadgesModal = useCallback(() => setIsBadgesModalOpen(true), []);
+  const closeBadgesModal = useCallback(() => setIsBadgesModalOpen(false), []);
+
+  const userLevel = useMemo(
+    () => calculateUserLevel(gamification.totalXp),
+    [gamification.totalXp]
+  );
 
   const dismissToast = useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
@@ -363,6 +392,41 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
   const persistWeightLogs = useCallback((newWeights: WeightLog[]) => {
     void setStorageItem(LOCAL_STORAGE_WEIGHT_LOGS_KEY, newWeights);
   }, []);
+
+  const persistGamification = useCallback((state: GamificationState) => {
+    void setStorageItem(LOCAL_STORAGE_GAMIFICATION_KEY, state);
+  }, []);
+
+  const triggerGamificationCheck = useCallback(
+    (actionDate: string, extraContext: Partial<GamificationContext> = {}) => {
+      setGamification((prev) => {
+        const streakResult = calculateStreakOnAction(prev, actionDate);
+        const nextStreakState: GamificationState = {
+          ...prev,
+          currentStreak: streakResult.currentStreak,
+          longestStreak: streakResult.longestStreak,
+          lastActiveDate: streakResult.lastActiveDate,
+          streakFreezeCount: streakResult.streakFreezeCount,
+        };
+
+        const { updatedState, newlyUnlocked } = evaluateBadges(nextStreakState, extraContext);
+
+        if (newlyUnlocked.length > 0) {
+          newlyUnlocked.forEach((badge) => {
+            showToast(`🏆 Yeni Rozet: ${badge.name}! +${badge.xpReward} XP`, "success");
+          });
+        } else if (streakResult.streakIncreased && streakResult.currentStreak > 1) {
+          showToast(`🔥 ${streakResult.currentStreak} Günlük Seri Devam Ediyor!`, "success");
+        } else if (streakResult.freezeUsed) {
+          showToast(`❄️ Seri Dondurma Koruması kullanıldı! Serin kurtarıldı.`, "info");
+        }
+
+        persistGamification(updatedState);
+        return updatedState;
+      });
+    },
+    [showToast, persistGamification]
+  );
 
   // Background Cloud Sync helpers
   const syncDailyLogInBackground = useCallback((log: DailyLog) => {
@@ -424,6 +488,7 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
         LOCAL_STORAGE_DAILY_LOGS_KEY,
         LOCAL_STORAGE_MACRO_GOALS_KEY,
         LOCAL_STORAGE_WEIGHT_LOGS_KEY,
+        LOCAL_STORAGE_GAMIFICATION_KEY,
       ]);
 
       if (isCancelled) return;
@@ -496,6 +561,27 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
       } catch (err) {
         console.error("[NutriTrack AI] weightLogs storage okuma hatası:", err);
         setWeightLogs(getInitialSeedWeightLogs(todayStr));
+      }
+
+      // 4.3. Hydrate Gamification State
+      try {
+        const storedGamification = await getStorageItem<GamificationState>(
+          LOCAL_STORAGE_GAMIFICATION_KEY
+        );
+        if (
+          storedGamification &&
+          typeof storedGamification === "object" &&
+          typeof storedGamification.currentStreak === "number"
+        ) {
+          setGamification(storedGamification);
+        } else {
+          const initialGamification = getInitialSeedGamification(todayStr);
+          setGamification(initialGamification);
+          void setStorageItem(LOCAL_STORAGE_GAMIFICATION_KEY, initialGamification);
+        }
+      } catch (err) {
+        console.error("[NutriTrack AI] gamification storage okuma hatası:", err);
+        setGamification(getInitialSeedGamification(todayStr));
       } finally {
         setIsHydrated(true);
       }
@@ -539,10 +625,20 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
           });
       }
 
+      const isVoice = Boolean(
+        newMeal.notes?.includes("Sesli") ||
+        newMeal.name?.includes("Sesli") ||
+        newMeal.aiConfidence?.modelVersion?.includes("Voice")
+      );
+      triggerGamificationCheck(newMeal.date, {
+        todayMealsCount: 1,
+        isVoiceMeal: isVoice,
+      });
+
       showToast("Öğün günlüğe kaydedildi 🥑", "success");
       return newMeal;
     },
-    [selectedDate, persistMeals, showToast]
+    [selectedDate, persistMeals, showToast, triggerGamificationCheck]
   );
 
   // Stability Roadmap Step 2: Background Offline Queue Auto-Flusher when device reconnects to internet
@@ -662,9 +758,12 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
         syncDailyLogInBackground(updatedLog);
         return updated;
       });
+      triggerGamificationCheck(dateKey, {
+        waterMl: Math.min(10000, (dailyLogs[dateKey]?.waterMl || 0) + validAmount),
+      });
       showToast(`+${validAmount} ml su kaydedildi 💧`, "success");
     },
-    [selectedDate, persistDailyLogs, syncDailyLogInBackground, showToast]
+    [selectedDate, dailyLogs, persistDailyLogs, syncDailyLogInBackground, showToast, triggerGamificationCheck]
   );
 
   const resetWater = useCallback(
@@ -751,8 +850,11 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
         syncDailyLogInBackground(updatedLog);
         return updated;
       });
+      triggerGamificationCheck(dateKey, {
+        steps: validSteps,
+      });
     },
-    [selectedDate, persistDailyLogs, syncDailyLogInBackground]
+    [selectedDate, persistDailyLogs, syncDailyLogInBackground, triggerGamificationCheck]
   );
 
   // Calorie & Macro Goal Actions
@@ -918,10 +1020,14 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
         return updated;
       });
 
+      triggerGamificationCheck(targetDate, {
+        hasWeightLog: true,
+      });
+
       showToast(`Tartım kaydedildi: ${safeWeight} kg ⚖️`, "success");
       return newLog;
     },
-    [selectedDate, persistWeightLogs, showToast]
+    [selectedDate, persistWeightLogs, showToast, triggerGamificationCheck]
   );
 
   const deleteWeightLog = useCallback(
@@ -1153,6 +1259,11 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
       deleteWeightLog,
       getLatestWeight,
       getWeightProgress,
+      gamification,
+      userLevel,
+      isBadgesModalOpen,
+      openBadgesModal,
+      closeBadgesModal,
       getActivitiesForDate,
       getTotalBurnedCalories,
       getWeeklyStats,
@@ -1190,6 +1301,11 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
       deleteWeightLog,
       getLatestWeight,
       getWeightProgress,
+      gamification,
+      userLevel,
+      isBadgesModalOpen,
+      openBadgesModal,
+      closeBadgesModal,
       getActivitiesForDate,
       getTotalBurnedCalories,
       getWeeklyStats,
@@ -1202,6 +1318,11 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
     <TrackerContext.Provider value={value}>
       {children}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
+      <BadgesModal
+        isOpen={isBadgesModalOpen}
+        onClose={closeBadgesModal}
+        gamification={gamification}
+      />
     </TrackerContext.Provider>
   );
 }

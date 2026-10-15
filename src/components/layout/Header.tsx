@@ -132,8 +132,19 @@ export function Header({
           })}
         </nav>
 
-        {/* Right Side: Cloud Sync Indicator & Profile / User Icon */}
+        {/* Right Side: Streak & Cloud Sync Indicator & Admin */}
         <div className="flex items-center gap-2 shrink-0">
+          {/* Gamification Streak Button */}
+          <button
+            type="button"
+            onClick={tracker.openBadgesModal}
+            title={`${tracker.gamification.currentStreak} Günlük Seri - Başarı ve Rozetleri Görüntüle`}
+            className="flex items-center gap-1 px-2 sm:px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30 hover:bg-amber-500/25 transition-all select-none active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+          >
+            <span className="text-xs">🔥</span>
+            <span className="tabular-nums font-extrabold">{tracker.gamification.currentStreak} Gün</span>
+          </button>
+
           <div
             className={cn(
               "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium transition-all border select-none",

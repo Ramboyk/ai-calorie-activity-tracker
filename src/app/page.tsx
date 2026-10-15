@@ -15,6 +15,7 @@ import {
   MacroCalculatorModal,
   WeightTrackerCard,
   ExportReportModal,
+  StreakBadgeCard,
 } from "@/components";
 import { FileText } from "lucide-react";
 import { useTracker } from "@/context";
@@ -41,6 +42,8 @@ export default function DashboardPage() {
     getActivitiesForDate,
     getTotalBurnedCalories,
     showToast,
+    gamification,
+    openBadgesModal,
   } = useTracker();
 
   const [isCalculatorOpen, setIsCalculatorOpen] = useState<boolean>(false);
@@ -143,8 +146,14 @@ export default function DashboardPage() {
               />
             </div>
 
-            {/* Right / Sidebar Column (Macros + Steps & Water + Activity) */}
+            {/* Right / Sidebar Column (Streak + Macros + Weight + Activity) */}
             <div className="lg:col-span-5 xl:col-span-4 space-y-6">
+              {/* Dynamic Gamification Streak & Badges Card */}
+              <StreakBadgeCard
+                gamification={gamification}
+                onOpenBadgesModal={openBadgesModal}
+              />
+
               {/* Dynamic Macro Distribution Card */}
               <MacroDistribution
                 macros={{
