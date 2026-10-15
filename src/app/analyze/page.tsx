@@ -15,6 +15,7 @@ import {
   MealItemRow,
   NutritionSummaryCard,
   AddFoodItemModal,
+  VoiceMealModal,
 } from "@/components";
 import type {
   MealType,
@@ -50,6 +51,7 @@ import {
   WifiOff,
   Clock,
   CloudOff,
+  Mic,
 } from "lucide-react";
 
 export default function AnalyzeMealPage() {
@@ -90,6 +92,9 @@ export default function AnalyzeMealPage() {
   const [editableItems, setEditableItems] = useState<EditableFoodItem[]>([]);
   const [isAddModalOpen, setIsAddModalOpen] = useState<boolean>(false);
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
+
+  // Voice-to-Meal AI State
+  const [isVoiceModalOpen, setIsVoiceModalOpen] = useState<boolean>(false);
 
   // Stability Roadmap Step 2: Offline Analysis Queue & Network Resilience State
   const [isQueuedOffline, setIsQueuedOffline] = useState<boolean>(false);
@@ -408,6 +413,47 @@ export default function AnalyzeMealPage() {
     setIsQueuedOffline(false);
     setIsNetworkRetrying(false);
     setEditableItems([]);
+  };
+
+  const handleVoiceAnalysisSuccess = (
+    result: GeminiMealAnalysisResult,
+    _transcriptText: string
+  ) => {
+    setAnalysisResult(result);
+    setMealTitle(result.mealName || "Sesli Kaydedilen Öğün");
+
+    // Convert result items into editable items with 100g base reference
+    const formattedItems: EditableFoodItem[] = result.items.map((item, idx) => {
+      const weight = item.estimatedWeightGrams > 0 ? item.estimatedWeightGrams : 100;
+      const factor = 100 / weight;
+      const base100g = {
+        calories: Math.round(item.calories * factor),
+        protein: Math.round(item.protein * factor * 10) / 10,
+        carbs: Math.round(item.carbs * factor * 10) / 10,
+        fat: Math.round(item.fat * factor * 10) / 10,
+      };
+
+      return {
+        id: `item_voice_${idx}_${Date.now()}`,
+        name: item.name,
+        estimatedPortion: item.estimatedPortion,
+        weightGrams: weight,
+        calories: item.calories,
+        protein: item.protein,
+        carbs: item.carbs,
+        fat: item.fat,
+        base100g,
+      };
+    });
+
+    setEditableItems(formattedItems);
+    setIsReviewMode(true);
+    setIsVoiceModalOpen(false);
+    setPreviewUrl(null);
+    setSelectedFile(null);
+    setIsQueuedOffline(false);
+    setApiError(null);
+    tracker.showToast("Sesli öğün Gemini 3.6 Flash ile başarıyla analiz edildi! 🎙️✨", "success");
   };
 
   const handleRetry = () => {
@@ -867,6 +913,39 @@ export default function AnalyzeMealPage() {
                 </div>
               )}
 
+              {/* Voice Meal Header Banner if Meal Added via Voice */}
+              {!previewUrl && (
+                <div className="relative w-full p-5 sm:p-6 rounded-3xl overflow-hidden bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-primary-soft border border-emerald-500/25 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0 shadow-xs">
+                      <Mic className="w-6 h-6" />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 text-xs font-bold">
+                          🎙️ Sesle Çözümlenen Öğün
+                        </span>
+                        <span className="text-[11px] text-app-text-muted">
+                          %{analysisResult.confidence === "high" ? "95" : "80"} Güven Skoru
+                        </span>
+                      </div>
+                      <p className="text-xs text-app-text-muted">
+                        Gemini 3.6 Flash konuşmanızı inceleyerek besinleri ve porsiyonları otomatik çıkardı.
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsVoiceModalOpen(true)}
+                    className="self-start sm:self-auto bg-surface-container hover:bg-surface-container-high text-app-text-main text-xs font-bold px-3.5 py-2 rounded-2xl flex items-center gap-1.5 transition-colors border border-surface-container/60 shadow-xs cursor-pointer"
+                  >
+                    <Mic className="w-3.5 h-3.5 text-primary" />
+                    <span>Yeniden Ses Kaydet</span>
+                  </button>
+                </div>
+              )}
+
               {/* Meal Type Filter Chips */}
               <div className="space-y-2">
                 <label className="block text-xs font-bold text-app-text-muted uppercase">
@@ -1041,6 +1120,7 @@ export default function AnalyzeMealPage() {
               <ImageUploader
                 onImageSelected={handleImageSelected}
                 onAnalyzeRequest={handleStartAnalysis}
+                onVoiceMealClick={() => setIsVoiceModalOpen(true)}
                 isLoading={isAnalyzing}
               />
             </div>
@@ -1067,6 +1147,15 @@ export default function AnalyzeMealPage() {
           setApiError(null);
         }}
         currentKey={customApiKey}
+      />
+
+      {/* Voice-to-Meal Recording & AI Modal Dialog */}
+      <VoiceMealModal
+        isOpen={isVoiceModalOpen}
+        onClose={() => setIsVoiceModalOpen(false)}
+        mealType={mealType}
+        customApiKey={customApiKey}
+        onSuccess={handleVoiceAnalysisSuccess}
       />
 
       {/* Mobile Bottom Navigation */}

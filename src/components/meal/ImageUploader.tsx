@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   Loader2,
   AlertTriangle,
+  Mic,
 } from "lucide-react";
 import { CameraModal } from "./CameraModal";
 import { compressImage } from "@/lib/utils/image-compression";
@@ -22,6 +23,7 @@ import { cn } from "@/lib/utils/cn";
 export interface ImageUploaderProps {
   onImageSelected?: (file: File, previewUrl: string) => void;
   onAnalyzeRequest?: (file: File) => void;
+  onVoiceMealClick?: () => void;
   isLoading?: boolean;
 }
 
@@ -31,6 +33,7 @@ const ALLOWED_MIME_TYPES = ["image/jpeg", "image/png", "image/webp"];
 export function ImageUploader({
   onImageSelected,
   onAnalyzeRequest,
+  onVoiceMealClick,
   isLoading = false,
 }: ImageUploaderProps) {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -271,8 +274,13 @@ export function ImageUploader({
       {/* When NO image is selected: Action Buttons & Drag-Drop Zone */}
       {!previewUrl && (
         <div className="space-y-4">
-          {/* Dual Action Buttons */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Triple Action Buttons: Camera, Gallery & Voice-to-Meal */}
+          <div
+            className={cn(
+              "grid gap-3",
+              onVoiceMealClick ? "grid-cols-1 sm:grid-cols-3" : "grid-cols-1 sm:grid-cols-2"
+            )}
+          >
             <Button
               variant="primary"
               size="lg"
@@ -293,6 +301,19 @@ export function ImageUploader({
             >
               Galeriden Seç
             </Button>
+            {onVoiceMealClick && (
+              <Button
+                type="button"
+                variant="outline"
+                size="lg"
+                onClick={onVoiceMealClick}
+                leftIcon={<Mic className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />}
+                className="w-full bg-emerald-500/10 hover:bg-emerald-500/20 border-emerald-500/30 text-emerald-800 dark:text-emerald-200 font-bold shadow-xs transition-all active:scale-[0.99]"
+                disabled={isOptimizing}
+              >
+                🎙️ Sesle Anlat
+              </Button>
+            )}
           </div>
 
           {/* Drag and Drop Zone */}

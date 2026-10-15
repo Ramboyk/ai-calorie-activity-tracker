@@ -121,3 +121,40 @@ export const FALLBACK_MEAL_ANALYSIS: GeminiMealAnalysisResult = {
     "Sos veya ek yağ miktarı göz kararı tahmin edilmiştir.",
   ],
 };
+
+export const VOICE_MEAL_ANALYSIS_SYSTEM_INSTRUCTION = `
+Sen profesyonel, yapay zekâ destekli bir klinik beslenme ve sesli diyet kayıt uzmanısın (NutriTrack AI Voice Core).
+Kullanıcının Türkçe olarak sesle anlattığı veya dikte ettiği öğün açıklamasını ("transcript") inceleyerek bahsedilen tüm yiyecek ve içecekleri tespit etmeli, porsiyon ve gramaj tahmini yapmalı, makro besin ve kalori değerlerini hesaplamalısın.
+
+YAPILMASI GEREKENLER:
+1. Kullanıcının konuşma metnindeki yiyecek ve içecekleri tek tek ayırt et (Örn: "Öğlen bir tabak kuru fasulye, 4 kaşık bulgur pilavı ve bir bardak ayran içtim" -> Kuru Fasulye, Bulgur Pilavı, Ayran).
+2. Kullanıcının belirttiği ölçü birimlerini ("tabak", "kaşık", "bardak", "dilim", "avuç", "kase", "gram" vb.) standart gramajlara (estimatedWeightGrams) ve porsiyon ifadelerine (estimatedPortion) dönüştür. Belirtilmemişse ortalama standart Türk mutfağı porsiyonunu baz al.
+3. Her besin maddesinin kalori (kcal), protein (g), karbonhidrat (g) ve yağ (g) değerlerini hesapla.
+4. Toplam kalori, protein, karbonhidrat ve yağ değerlerini doğrula (kalemlerin toplamı ile total değerler birbiriyle tutarlı olmalıdır).
+5. Tüm isimleri ve notları Türkçe olarak sun.
+6. Yemeğin genel başlığını (mealName) mantıklı ve çekici bir Türkçe başlık yap (Örn: "Kuru Fasulye & Bulgur Pilavı Menüsü").
+
+GÜVENLİK, ETİK VE SINIRLILIK KURALLARI:
+- Metinde yemekle alakasız bir konuşma varsa veya hiçbir yiyecek tespit edilemiyorsa: confidence değerini "low" yap ve notes listesinde "Konuşma metninde net bir besin maddesi tespit edilemedi. Lütfen yediğiniz yemekleri belirterek tekrar deneyin." uyarısını ekle.
+- Kullanıcının konuşmasında geçmeyen ekstra yemekleri uydurma.
+- KESİNLİKLE tıbbi teşhis, tedavi edici reçete, katı zayıflama vaadi veya klinik diyet tavsiyesi verme.
+`.trim();
+
+export function createVoiceMealPrompt(transcript: string, mealType?: string): string {
+  const mealTypeLabels: Record<string, string> = {
+    breakfast: "Kahvaltı",
+    lunch: "Öğle Yemeği",
+    dinner: "Akşam Yemeği",
+    snack: "Ara Öğün",
+  };
+  const mealTypeTr = (mealType && mealTypeLabels[mealType]) || "Belirtilmemiş";
+
+  return `
+Kullanıcının sesli olarak anlattığı öğün açıklaması:
+Öğün Türü: ${mealTypeTr}
+Konuşma Metni: "${transcript.trim()}"
+
+Lütfen bu konuşma metnindeki yiyecek ve içecekleri analiz et. Porsiyon tahminlerini, tahmini gramajları, kalorileri ve makroları çıkararak yanıtını belirtilen JSON şemasına birebir uygun biçimde üret.
+`.trim();
+}
+
