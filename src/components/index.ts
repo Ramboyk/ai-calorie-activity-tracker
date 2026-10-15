@@ -26,6 +26,10 @@ export { QuickMetrics, type QuickMetricsProps } from "./dashboard/QuickMetrics";
 export { MealSection, type MealSectionProps } from "./dashboard/MealSection";
 export { ActivitySummaryCard, type ActivitySummaryCardProps } from "./dashboard/ActivitySummaryCard";
 export { MacroCalculatorModal, type MacroCalculatorModalProps } from "./dashboard/MacroCalculatorModal";
+export { WeightTrackerCard, type WeightTrackerCardProps } from "./dashboard/WeightTrackerCard";
+
+// Export & Report Components
+export { ExportReportModal, type ExportReportModalProps } from "./export/ExportReportModal";
 
 // Meal & AI Analysis Components
 export { ImageUploader, type ImageUploaderProps } from "./meal/ImageUploader";

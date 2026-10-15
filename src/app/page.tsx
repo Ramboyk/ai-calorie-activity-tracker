@@ -13,7 +13,10 @@ import {
   ActivitySummaryCard,
   DisclaimerBanner,
   MacroCalculatorModal,
+  WeightTrackerCard,
+  ExportReportModal,
 } from "@/components";
+import { FileText } from "lucide-react";
 import { useTracker } from "@/context";
 import { formatDisplayDate } from "@/lib/utils/date";
 import type { Meal } from "@/types/meal";
@@ -41,6 +44,7 @@ export default function DashboardPage() {
   } = useTracker();
 
   const [isCalculatorOpen, setIsCalculatorOpen] = useState<boolean>(false);
+  const [isExportOpen, setIsExportOpen] = useState<boolean>(false);
 
   const currentMeals = getMealsForDate(selectedDate);
   const nutrition = getDailyNutrition(selectedDate);
@@ -172,6 +176,9 @@ export default function DashboardPage() {
                 onOpenCalculator={() => setIsCalculatorOpen(true)}
               />
 
+              {/* Dynamic Weight Tracker Card with Recharts Trend */}
+              <WeightTrackerCard />
+
               {/* Steps & Water Quick Metrics Grid */}
               <QuickMetrics
                 steps={stepsData}
@@ -189,8 +196,33 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {/* Dietitian Report Download Action Bar */}
+          <section className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl bg-gradient-to-r from-primary-soft via-surface-container-low to-surface-container border border-primary/20 shadow-xs">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-primary text-white flex items-center justify-center shadow-xs shrink-0">
+                <FileText className="w-4 h-4" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-app-text-main">
+                  Diyetisyen & Sağlık Raporu
+                </p>
+                <p className="text-[11px] text-app-text-muted">
+                  Klinik A4 PDF çıktısı veya Excel/Google Sheets uyumlu CSV formatında indir
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsExportOpen(true)}
+              className="w-full sm:w-auto px-4 py-2 rounded-xl bg-primary text-white text-xs font-bold hover:bg-primary-hover active:scale-95 transition-all shadow-xs flex items-center justify-center gap-1.5 shrink-0"
+            >
+              <FileText className="w-3.5 h-3.5" />
+              <span>Rapor İndir (PDF / CSV)</span>
+            </button>
+          </section>
+
           {/* Medical & AI Disclaimer Banner */}
-          <footer className="pt-2">
+          <footer className="pt-1">
             <DisclaimerBanner />
           </footer>
         </Container>
@@ -200,6 +232,12 @@ export default function DashboardPage() {
           isOpen={isCalculatorOpen}
           onClose={() => setIsCalculatorOpen(false)}
           onApply={handleApplyMacroGoals}
+        />
+
+        {/* Diyetisyen & Beslenme Raporu Dışa Aktarma Modalı */}
+        <ExportReportModal
+          isOpen={isExportOpen}
+          onClose={() => setIsExportOpen(false)}
         />
       </main>
 

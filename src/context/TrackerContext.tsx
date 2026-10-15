@@ -32,6 +32,16 @@ import {
   getPendingCount,
   isOnline,
 } from "@/lib/network/offline-queue";
+import {
+  type WeightLog,
+  type WeightProgressSummary,
+  getInitialSeedWeightLogs,
+  LOCAL_STORAGE_WEIGHT_LOGS_KEY,
+  calculateWeightProgress,
+  getLatestWeightLog as getLatestWeightLogUtil,
+} from "@/lib/storage/weight-tracker";
+
+export type { WeightLog, WeightProgressSummary };
 
 export interface MacroGoals {
   protein: number;
@@ -86,6 +96,12 @@ export interface TrackerContextType {
   deleteActivity: (activityId: string) => void;
   getActivitiesForDate: (dateStr: string) => ExerciseLog[];
   getTotalBurnedCalories: (dateStr: string) => number;
+  // Weight Tracking Actions & Selectors
+  weightLogs: WeightLog[];
+  addWeightLog: (weightKg: number, date?: string, note?: string) => WeightLog;
+  deleteWeightLog: (id: string) => void;
+  getLatestWeight: () => WeightLog | null;
+  getWeightProgress: () => WeightProgressSummary | null;
   // Weekly Insights Selector
   getWeeklyStats: () => WeeklyStats;
   // Cloud Sync
@@ -310,6 +326,7 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
   const [meals, setMeals] = useState<Meal[]>([]);
   const [activities, setActivities] = useState<ExerciseLog[]>([]);
   const [dailyLogs, setDailyLogs] = useState<Record<string, DailyLog>>({});
+  const [weightLogs, setWeightLogs] = useState<WeightLog[]>([]);
   const [customMacroGoals, setCustomMacroGoals] = useState<MacroGoals | null>(null);
   const [isHydrated, setIsHydrated] = useState<boolean>(false);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(() =>
@@ -341,6 +358,10 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
 
   const persistDailyLogs = useCallback((newLogs: Record<string, DailyLog>) => {
     void setStorageItem(LOCAL_STORAGE_DAILY_LOGS_KEY, newLogs);
+  }, []);
+
+  const persistWeightLogs = useCallback((newWeights: WeightLog[]) => {
+    void setStorageItem(LOCAL_STORAGE_WEIGHT_LOGS_KEY, newWeights);
   }, []);
 
   // Background Cloud Sync helpers
@@ -402,6 +423,7 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
         LOCAL_STORAGE_ACTIVITIES_KEY,
         LOCAL_STORAGE_DAILY_LOGS_KEY,
         LOCAL_STORAGE_MACRO_GOALS_KEY,
+        LOCAL_STORAGE_WEIGHT_LOGS_KEY,
       ]);
 
       if (isCancelled) return;
@@ -459,6 +481,21 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
         }
       } catch (err) {
         console.warn("[NutriTrack AI] customMacroGoals storage okuma hatası:", err);
+      }
+
+      // 4.2. Hydrate Weight Logs
+      try {
+        const storedWeights = await getStorageItem<WeightLog[]>(LOCAL_STORAGE_WEIGHT_LOGS_KEY);
+        if (Array.isArray(storedWeights) && storedWeights.length > 0) {
+          setWeightLogs(storedWeights);
+        } else {
+          const initialWeights = getInitialSeedWeightLogs(todayStr);
+          setWeightLogs(initialWeights);
+          void setStorageItem(LOCAL_STORAGE_WEIGHT_LOGS_KEY, initialWeights);
+        }
+      } catch (err) {
+        console.error("[NutriTrack AI] weightLogs storage okuma hatası:", err);
+        setWeightLogs(getInitialSeedWeightLogs(todayStr));
       } finally {
         setIsHydrated(true);
       }
@@ -859,6 +896,54 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
     [persistActivities, showToast]
   );
 
+  // Weight Tracking Actions
+  const addWeightLog = useCallback(
+    (weightKg: number, dateStr?: string, note?: string): WeightLog => {
+      const safeWeight = Math.round(Math.max(25, Math.min(300, weightKg)) * 10) / 10;
+      const targetDate = dateStr || selectedDate;
+      const newLog: WeightLog = {
+        id: `weight_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`,
+        date: targetDate,
+        weightKg: safeWeight,
+        note: note?.trim() || undefined,
+        createdAt: new Date().toISOString(),
+      };
+
+      setWeightLogs((prev) => {
+        const filtered = prev.filter((w) => w.date !== targetDate);
+        const updated = [...filtered, newLog].sort(
+          (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+        );
+        persistWeightLogs(updated);
+        return updated;
+      });
+
+      showToast(`Tartım kaydedildi: ${safeWeight} kg ⚖️`, "success");
+      return newLog;
+    },
+    [selectedDate, persistWeightLogs, showToast]
+  );
+
+  const deleteWeightLog = useCallback(
+    (id: string) => {
+      setWeightLogs((prev) => {
+        const updated = prev.filter((w) => w.id !== id);
+        persistWeightLogs(updated);
+        return updated;
+      });
+      showToast("Kilo kaydı silindi 🗑️", "info");
+    },
+    [persistWeightLogs, showToast]
+  );
+
+  const getLatestWeight = useCallback((): WeightLog | null => {
+    return getLatestWeightLogUtil(weightLogs);
+  }, [weightLogs]);
+
+  const getWeightProgress = useCallback((): WeightProgressSummary | null => {
+    return calculateWeightProgress(weightLogs);
+  }, [weightLogs]);
+
   const getActivitiesForDate = useCallback(
     (dateStr: string): ExerciseLog[] => {
       return activities.filter((act) => act.date === dateStr);
@@ -1063,6 +1148,11 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
       getDailyLog,
       addActivity,
       deleteActivity,
+      weightLogs,
+      addWeightLog,
+      deleteWeightLog,
+      getLatestWeight,
+      getWeightProgress,
       getActivitiesForDate,
       getTotalBurnedCalories,
       getWeeklyStats,
@@ -1095,6 +1185,11 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
       getDailyLog,
       addActivity,
       deleteActivity,
+      weightLogs,
+      addWeightLog,
+      deleteWeightLog,
+      getLatestWeight,
+      getWeightProgress,
       getActivitiesForDate,
       getTotalBurnedCalories,
       getWeeklyStats,

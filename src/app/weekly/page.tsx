@@ -6,19 +6,21 @@ import {
   Header,
   BottomNav,
   DisclaimerBanner,
+  ExportReportModal,
 } from "@/components";
 import { WeeklyStatCards } from "@/components/weekly/WeeklyStatCards";
 import { CalorieTrendChart } from "@/components/weekly/CalorieTrendChart";
 import { ActivityTrendChart } from "@/components/weekly/ActivityTrendChart";
 import { WaterTrendChart } from "@/components/weekly/WaterTrendChart";
 import { useTracker } from "@/context";
-import { ChevronLeft, ChevronRight, BarChart3, Flame, Footprints, Droplets } from "lucide-react";
+import { ChevronLeft, ChevronRight, BarChart3, Flame, Footprints, Droplets, FileText } from "lucide-react";
 
 type WeeklyTab = "all" | "calories" | "steps" | "water";
 
 export default function WeeklyPage() {
   const { getWeeklyStats, calorieGoal } = useTracker();
   const [activeTab, setActiveTab] = useState<WeeklyTab>("all");
+  const [isExportOpen, setIsExportOpen] = useState<boolean>(false);
 
   const weeklyStats = getWeeklyStats();
 
@@ -37,39 +39,63 @@ export default function WeeklyPage() {
       <main className="flex-1 w-full pt-4 sm:pt-6 pb-28 md:pb-12">
         <Container className="space-y-6 max-w-4xl">
           {/* Week Range Navigator Banner */}
-          <div className="flex items-center justify-between bg-surface-container-low p-3 sm:p-4 rounded-2xl border border-surface-container/60 shadow-xs">
-            <button
-              type="button"
-              aria-label="Önceki Hafta"
-              title="Önceki Hafta"
-              className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center bg-surface-container hover:bg-surface-container-high active:scale-95 text-app-text-main transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              <ChevronLeft className="w-5 h-5" />
-            </button>
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-surface-container-low p-3 sm:p-4 rounded-2xl border border-surface-container/60 shadow-xs">
+            <div className="flex items-center justify-between sm:justify-start gap-3">
+              <button
+                type="button"
+                aria-label="Önceki Hafta"
+                title="Önceki Hafta"
+                className="w-10 h-10 rounded-full flex items-center justify-center bg-surface-container hover:bg-surface-container-high active:scale-95 text-app-text-main transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shrink-0"
+              >
+                <ChevronLeft className="w-5 h-5" />
+              </button>
 
-            <div className="flex flex-col items-center text-center">
-              <div className="flex items-center gap-2">
-                <span className="text-base sm:text-lg font-bold text-app-text-main tracking-tight">
-                  {weeklyStats.weekRangeLabel}
-                </span>
-                <span className="px-2.5 py-0.5 rounded-full bg-primary-soft text-primary text-[10px] font-extrabold uppercase tracking-wide">
-                  Bu Hafta
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2">
+                  <span className="text-base sm:text-lg font-bold text-app-text-main tracking-tight">
+                    {weeklyStats.weekRangeLabel}
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-primary-soft text-primary text-[10px] font-extrabold uppercase tracking-wide">
+                    Bu Hafta
+                  </span>
+                </div>
+                <span className="text-xs text-app-text-muted mt-0.5">
+                  {weeklyStats.weekNumber}. Hafta Performans İncelemesi
                 </span>
               </div>
-              <span className="text-xs text-app-text-muted mt-0.5">
-                {weeklyStats.weekNumber}. Hafta Performans İncelemesi
-              </span>
+
+              <button
+                type="button"
+                aria-label="Sonraki Hafta (Gelecek hafta henüz başlamadı)"
+                title="Sonraki Hafta"
+                disabled
+                className="w-10 h-10 rounded-full flex items-center justify-center bg-surface-container text-app-text-muted/40 cursor-not-allowed transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shrink-0 sm:hidden"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
             </div>
 
-            <button
-              type="button"
-              aria-label="Sonraki Hafta (Gelecek hafta henüz başlamadı)"
-              title="Sonraki Hafta"
-              disabled
-              className="w-11 h-11 min-w-[44px] min-h-[44px] rounded-full flex items-center justify-center bg-surface-container text-app-text-muted/40 cursor-not-allowed transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-            >
-              <ChevronRight className="w-5 h-5" />
-            </button>
+            {/* Action: Export Report */}
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setIsExportOpen(true)}
+                className="w-full sm:w-auto px-4 py-2 rounded-xl bg-primary hover:bg-primary-hover text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-xs active:scale-95 transition-all"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>Rapor İndir (PDF / CSV)</span>
+              </button>
+
+              <button
+                type="button"
+                aria-label="Sonraki Hafta (Gelecek hafta henüz başlamadı)"
+                title="Sonraki Hafta"
+                disabled
+                className="hidden sm:flex w-10 h-10 rounded-full items-center justify-center bg-surface-container text-app-text-muted/40 cursor-not-allowed transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary shrink-0"
+              >
+                <ChevronRight className="w-5 h-5" />
+              </button>
+            </div>
           </div>
 
           {/* 4-Stat Averages Grid */}
@@ -123,6 +149,13 @@ export default function WeeklyPage() {
             <DisclaimerBanner />
           </footer>
         </Container>
+
+        {/* Diyetisyen & Beslenme Raporu Dışa Aktarma Modalı */}
+        <ExportReportModal
+          isOpen={isExportOpen}
+          onClose={() => setIsExportOpen(false)}
+          defaultRange="7days"
+        />
       </main>
 
       {/* Mobile Bottom Navigation */}
@@ -130,3 +163,4 @@ export default function WeeklyPage() {
     </div>
   );
 }
+
