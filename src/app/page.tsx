@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Container,
@@ -12,11 +12,13 @@ import {
   MealSection,
   ActivitySummaryCard,
   DisclaimerBanner,
+  MacroCalculatorModal,
 } from "@/components";
 import { useTracker } from "@/context";
 import { formatDisplayDate } from "@/lib/utils/date";
 import type { Meal } from "@/types/meal";
 import type { StepsData, WaterLog } from "@/types/activity";
+import type { MacroDistributionSummary } from "@/lib/nutrition/macro-calculator";
 
 
 
@@ -32,10 +34,13 @@ export default function DashboardPage() {
     getDailyLog,
     addWater,
     updateCalorieGoal,
+    updateMacroGoals,
     getActivitiesForDate,
     getTotalBurnedCalories,
     showToast,
   } = useTracker();
+
+  const [isCalculatorOpen, setIsCalculatorOpen] = useState<boolean>(false);
 
   const currentMeals = getMealsForDate(selectedDate);
   const nutrition = getDailyNutrition(selectedDate);
@@ -90,6 +95,18 @@ export default function DashboardPage() {
     showToast(`Yeni kalori hedefi kaydedildi: ${newGoal.toLocaleString("tr-TR")} kcal`, "success");
   };
 
+  const handleApplyMacroGoals = (summary: MacroDistributionSummary) => {
+    updateMacroGoals(
+      {
+        protein: summary.protein,
+        carbs: summary.carbs,
+        fat: summary.fat,
+      },
+      summary.targetCalories,
+      selectedDate
+    );
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-surface text-app-text-main antialiased selection:bg-primary-light selection:text-primary">
       {/* Top Sticky Header bound to TrackerContext */}
@@ -110,6 +127,7 @@ export default function DashboardPage() {
                 caloriesBurned={totalBurnedCalories}
                 dateLabel={formatDisplayDate(selectedDate)}
                 onUpdateGoal={handleUpdateCalorieGoal}
+                onOpenCalculator={() => setIsCalculatorOpen(true)}
               />
 
               {/* Dynamic Today's Meals Section */}
@@ -151,6 +169,7 @@ export default function DashboardPage() {
                         : 0,
                   },
                 }}
+                onOpenCalculator={() => setIsCalculatorOpen(true)}
               />
 
               {/* Steps & Water Quick Metrics Grid */}
@@ -175,6 +194,13 @@ export default function DashboardPage() {
             <DisclaimerBanner />
           </footer>
         </Container>
+
+        {/* Akıllı Hedef Hesaplama Sihirbazı Modalı */}
+        <MacroCalculatorModal
+          isOpen={isCalculatorOpen}
+          onClose={() => setIsCalculatorOpen(false)}
+          onApply={handleApplyMacroGoals}
+        />
       </main>
 
       {/* Mobile Fixed Bottom Navigation Bar with Center Elevated FAB */}

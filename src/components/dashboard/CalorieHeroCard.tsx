@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
-import { Flame, Activity, TrendingUp, CheckCircle2, Edit2, AlertCircle, Check, X } from "lucide-react";
+import { Flame, Activity, TrendingUp, CheckCircle2, Edit2, AlertCircle, Check, X, Target } from "lucide-react";
 
 export interface CalorieHeroCardProps {
   calorieGoal: number;
@@ -11,6 +11,7 @@ export interface CalorieHeroCardProps {
   caloriesBurned: number;
   dateLabel?: string;
   onUpdateGoal?: (newGoal: number) => void;
+  onOpenCalculator?: () => void;
 }
 
 export function CalorieHeroCard({
@@ -19,6 +20,7 @@ export function CalorieHeroCard({
   caloriesBurned = 0,
   dateLabel = "Günlük Rapor",
   onUpdateGoal,
+  onOpenCalculator,
 }: CalorieHeroCardProps) {
   const [isEditingGoal, setIsEditingGoal] = useState<boolean>(false);
   const [goalInput, setGoalInput] = useState<string>(String(calorieGoal));
@@ -76,6 +78,19 @@ export function CalorieHeroCard({
             <Badge variant="primary" showDot leftIcon={<CheckCircle2 className="w-3.5 h-3.5" />}>
               Hedefinde
             </Badge>
+          )}
+
+          {onOpenCalculator && (
+            <button
+              type="button"
+              onClick={onOpenCalculator}
+              title="Akıllı Hedef Hesaplama Sihirbazı (BMR & TDEE)"
+              aria-label="Akıllı Hedef Hesaplama Sihirbazını Aç"
+              className="h-10 px-3 rounded-full bg-primary-soft text-primary hover:bg-primary hover:text-white transition-all text-xs font-bold flex items-center gap-1.5 shadow-xs active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <Target className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Hedef Hesapla</span>
+            </button>
           )}
 
           {onUpdateGoal && (

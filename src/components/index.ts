@@ -25,6 +25,7 @@ export { MacroDistribution, type MacroDistributionProps } from "./dashboard/Macr
 export { QuickMetrics, type QuickMetricsProps } from "./dashboard/QuickMetrics";
 export { MealSection, type MealSectionProps } from "./dashboard/MealSection";
 export { ActivitySummaryCard, type ActivitySummaryCardProps } from "./dashboard/ActivitySummaryCard";
+export { MacroCalculatorModal, type MacroCalculatorModalProps } from "./dashboard/MacroCalculatorModal";
 
 // Meal & AI Analysis Components
 export { ImageUploader, type ImageUploaderProps } from "./meal/ImageUploader";

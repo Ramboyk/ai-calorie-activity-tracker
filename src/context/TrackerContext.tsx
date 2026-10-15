@@ -79,6 +79,7 @@ export interface TrackerContextType {
   updateSteps: (steps: number, dateStr?: string) => void;
   updateStepGoal: (goal: number, dateStr?: string) => void;
   updateCalorieGoal: (goal: number, dateStr?: string) => void;
+  updateMacroGoals: (goals: MacroGoals, newCalorieGoal?: number, dateStr?: string) => void;
   getDailyLog: (dateStr: string) => DailyLog;
   // Activity Actions
   addActivity: (activityData: Omit<ExerciseLog, "id" | "createdAt">) => ExerciseLog;
@@ -96,6 +97,7 @@ export interface TrackerContextType {
 const LOCAL_STORAGE_MEALS_KEY = "nutritrack_meals_v1";
 const LOCAL_STORAGE_ACTIVITIES_KEY = "nutritrack_activities_v1";
 const LOCAL_STORAGE_DAILY_LOGS_KEY = "nutritrack_daily_logs_v1";
+const LOCAL_STORAGE_MACRO_GOALS_KEY = "nutritrack_custom_macro_goals_v1";
 
 const DEFAULT_CALORIE_GOAL = 2000;
 
@@ -308,6 +310,7 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
   const [meals, setMeals] = useState<Meal[]>([]);
   const [activities, setActivities] = useState<ExerciseLog[]>([]);
   const [dailyLogs, setDailyLogs] = useState<Record<string, DailyLog>>({});
+  const [customMacroGoals, setCustomMacroGoals] = useState<MacroGoals | null>(null);
   const [isHydrated, setIsHydrated] = useState<boolean>(false);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(() =>
     isFirebaseConfigured() ? "synced" : "local"
@@ -398,6 +401,7 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
         LOCAL_STORAGE_MEALS_KEY,
         LOCAL_STORAGE_ACTIVITIES_KEY,
         LOCAL_STORAGE_DAILY_LOGS_KEY,
+        LOCAL_STORAGE_MACRO_GOALS_KEY,
       ]);
 
       if (isCancelled) return;
@@ -445,6 +449,16 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
       } catch (err) {
         console.error("[NutriTrack AI] dailyLogs storage okuma hatası:", err);
         setDailyLogs(getInitialSeedDailyLogs(todayStr));
+      }
+
+      // 4.1. Hydrate Custom Macro Goals
+      try {
+        const storedMacros = await getStorageItem<MacroGoals>(LOCAL_STORAGE_MACRO_GOALS_KEY);
+        if (storedMacros && typeof storedMacros === "object" && storedMacros.protein > 0) {
+          setCustomMacroGoals(storedMacros);
+        }
+      } catch (err) {
+        console.warn("[NutriTrack AI] customMacroGoals storage okuma hatası:", err);
       } finally {
         setIsHydrated(true);
       }
@@ -704,7 +718,7 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
     [selectedDate, persistDailyLogs, syncDailyLogInBackground]
   );
 
-  // Calorie Goal Actions
+  // Calorie & Macro Goal Actions
   const updateCalorieGoal = useCallback(
     (goal: number, targetDate?: string) => {
       const dateKey = targetDate || selectedDate;
@@ -730,6 +744,31 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
       });
     },
     [selectedDate, persistDailyLogs, syncDailyLogInBackground]
+  );
+
+  const updateMacroGoals = useCallback(
+    (goals: MacroGoals, newCalorieGoal?: number, targetDate?: string) => {
+      const dateKey = targetDate || selectedDate;
+      const validGoals: MacroGoals = {
+        protein: Math.max(10, Math.round(goals.protein)),
+        carbs: Math.max(10, Math.round(goals.carbs)),
+        fat: Math.max(10, Math.round(goals.fat)),
+      };
+
+      setCustomMacroGoals(validGoals);
+      void setStorageItem(LOCAL_STORAGE_MACRO_GOALS_KEY, validGoals);
+
+      const computedCalories =
+        newCalorieGoal ||
+        validGoals.protein * 4 + validGoals.carbs * 4 + validGoals.fat * 9;
+      updateCalorieGoal(computedCalories, dateKey);
+
+      showToast(
+        `Hedefler güncellendi: ${computedCalories} kcal • ${validGoals.protein}g Protein • ${validGoals.carbs}g Karb • ${validGoals.fat}g Yağ 🎯`,
+        "success"
+      );
+    },
+    [selectedDate, updateCalorieGoal, showToast]
   );
 
   const updateStepGoal = useCallback(
@@ -893,6 +932,13 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
     };
   }, [activeCalorieGoal]);
 
+  const activeMacroGoals: MacroGoals = useMemo(() => {
+    if (customMacroGoals) {
+      return customMacroGoals;
+    }
+    return dynamicMacroGoals;
+  }, [customMacroGoals, dynamicMacroGoals]);
+
   // Weekly Stats Selector: computes last 7 days metrics
   const getWeeklyStats = useCallback((): WeeklyStats => {
     const todayStr = getTodayDateString();
@@ -995,7 +1041,7 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
       isHydrated,
       syncStatus,
       calorieGoal: activeCalorieGoal,
-      macroGoals: dynamicMacroGoals,
+      macroGoals: activeMacroGoals,
       meals,
       activities,
       dailyLogs,
@@ -1013,6 +1059,7 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
       updateSteps,
       updateStepGoal,
       updateCalorieGoal,
+      updateMacroGoals,
       getDailyLog,
       addActivity,
       deleteActivity,
@@ -1027,7 +1074,7 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
       isHydrated,
       syncStatus,
       activeCalorieGoal,
-      dynamicMacroGoals,
+      activeMacroGoals,
       meals,
       activities,
       dailyLogs,
@@ -1044,6 +1091,7 @@ export function TrackerProvider({ children }: { children: React.ReactNode }) {
       updateSteps,
       updateStepGoal,
       updateCalorieGoal,
+      updateMacroGoals,
       getDailyLog,
       addActivity,
       deleteActivity,

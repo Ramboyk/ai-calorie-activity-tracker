@@ -1,13 +1,14 @@
 import React from "react";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/Card";
 import type { DailyMacros } from "@/types/daily";
-import { PieChart } from "lucide-react";
+import { PieChart, Target } from "lucide-react";
 
 export interface MacroDistributionProps {
   macros: DailyMacros;
+  onOpenCalculator?: () => void;
 }
 
-export function MacroDistribution({ macros }: MacroDistributionProps) {
+export function MacroDistribution({ macros, onOpenCalculator }: MacroDistributionProps) {
   const { protein, carbs, fat } = macros;
 
   const macroItems = [
@@ -58,6 +59,18 @@ export function MacroDistribution({ macros }: MacroDistributionProps) {
             <CardDescription>Hedeflenen besin ögesi oranları</CardDescription>
           </div>
         </div>
+
+        {onOpenCalculator && (
+          <button
+            type="button"
+            onClick={onOpenCalculator}
+            title="Akıllı Hedef Hesaplama Sihirbazı"
+            aria-label="Makro Hedeflerini Hesapla ve Düzenle"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-app-text-muted hover:text-primary hover:bg-surface-container transition-colors active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            <Target className="w-4 h-4" />
+          </button>
+        )}
       </CardHeader>
 
       <CardContent className="space-y-4">
